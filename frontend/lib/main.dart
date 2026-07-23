@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -40,8 +42,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final TextEditingController _urlController =
-      TextEditingController(text: 'http://127.0.0.1:8000');
+  late final TextEditingController _urlController;
   
   bool _isLoading = false;
   String? _status;
@@ -51,7 +52,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    String defaultUrl = 'http://127.0.0.1:8000';
+    if (!kIsWeb && Platform.isAndroid) {
+      defaultUrl = 'http://10.0.2.2:8000';
+    }
+    _urlController = TextEditingController(text: defaultUrl);
     _checkStatus();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkStatus() async {
