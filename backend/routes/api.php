@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::get('/chat-messages', [ChatController::class, 'getMessages']);
     Route::post('/chat-messages', [ChatController::class, 'sendMessage']);
+    Route::put('/chat-messages/{id}', [ChatController::class, 'updateMessage']);
+    Route::delete('/chat-messages/{id}', [ChatController::class, 'deleteMessage']);
     Route::post('/chat-messages/{id}/read', [ChatController::class, 'markAsRead']);
     Route::post('/chat-messages/{id}/react', [ChatController::class, 'reactToMessage']);
     

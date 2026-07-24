@@ -10,31 +10,31 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageReacted implements ShouldBroadcastNow
+class MessageDeleted implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public Message $message;
+    public int $messageId;
+    public int $relationshipId;
 
-    public function __construct(Message $message)
+    public function __construct(int $messageId, int $relationshipId)
     {
-        $this->message = $message;
+        $this->messageId = $messageId;
+        $this->relationshipId = $relationshipId;
     }
 
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('relationship.' . $this->message->relationship_id),
+            new PrivateChannel('relationship.' . $this->relationshipId),
         ];
     }
 
     public function broadcastWith(): array
     {
         return [
-            'id' => $this->message->id,
-            'relationship_id' => $this->message->relationship_id,
-            'sender_reaction' => $this->message->sender_reaction,
-            'receiver_reaction' => $this->message->receiver_reaction,
+            'id' => $this->messageId,
+            'relationship_id' => $this->relationshipId,
         ];
     }
 }

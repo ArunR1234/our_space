@@ -182,4 +182,14 @@ class WebSocketService {
       _channel!.sink.close();
     }
   }
+
+  void triggerClientEvent(String eventName, int relationshipId, Map<String, dynamic> data) {
+    if (_isConnected && _channel != null) {
+      _channel!.sink.add(jsonEncode({
+        'event': eventName,
+        'channel': 'private-relationship.$relationshipId',
+        'data': data,
+      }));
+    }
+  }
 }

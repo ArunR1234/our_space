@@ -163,12 +163,13 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> sendMessage(String content) async {
+  Future<Map<String, dynamic>> sendMessage(String content, {int? replyToId}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/chat-messages'),
       headers: _headers(),
       body: jsonEncode({
         'content': content,
+        if (replyToId != null) 'reply_to_id': replyToId,
       }),
     );
     if (response.statusCode == 201) {
@@ -193,6 +194,31 @@ class ApiService {
       Uri.parse('$baseUrl/chat-messages/$messageId/read'),
       headers: _headers(),
     );
+  }
+
+  Future<Map<String, dynamic>> editMessage(int messageId, String content) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/chat-messages/$messageId'),
+      headers: _headers(),
+      body: jsonEncode({
+        'content': content,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to edit message');
+    }
+  }
+
+  Future<void> deleteMessage(int messageId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/chat-messages/$messageId'),
+      headers: _headers(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete message');
+    }
   }
 
   Future<List<dynamic>> getDatePlans() async {
