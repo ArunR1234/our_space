@@ -3,9 +3,29 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DatePlanController;
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user-status', [AuthController::class, 'userStatus']);
+    Route::post('/pair-partner', [AuthController::class, 'pairPartner']);
+    
+    Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
+    
+    Route::get('/chat-messages', [ChatController::class, 'getMessages']);
+    Route::post('/chat-messages', [ChatController::class, 'sendMessage']);
+    Route::post('/chat-messages/{id}/read', [ChatController::class, 'markAsRead']);
+    Route::post('/chat-messages/{id}/react', [ChatController::class, 'reactToMessage']);
+    
+    Route::get('/date-plans', [DatePlanController::class, 'getDatePlans']);
+    Route::post('/date-plans', [DatePlanController::class, 'proposeDatePlan']);
+    Route::post('/date-plans/{id}/respond', [DatePlanController::class, 'respondToDatePlan']);
+});
 
 Route::get('/db-status', function () {
     try {
