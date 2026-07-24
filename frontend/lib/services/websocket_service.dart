@@ -35,7 +35,9 @@ class WebSocketService {
     if (!_listeners.containsKey(eventName)) {
       _listeners[eventName] = [];
     }
-    _listeners[eventName]!.add(callback);
+    if (!_listeners[eventName]!.contains(callback)) {
+      _listeners[eventName]!.add(callback);
+    }
   }
 
   void removeListener(String eventName, Function(Map<String, dynamic>) callback) {

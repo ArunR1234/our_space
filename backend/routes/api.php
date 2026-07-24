@@ -10,10 +10,13 @@ use App\Http\Controllers\DatePlanController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user-status', [AuthController::class, 'userStatus']);
     Route::post('/pair-partner', [AuthController::class, 'pairPartner']);
+    Route::post('/cancel-pairing', [AuthController::class, 'cancelPairing']);
     
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
     

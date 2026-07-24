@@ -5,6 +5,8 @@ import 'screens/pairing_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'services/api_service.dart';
+import 'services/websocket_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -121,6 +123,190 @@ class MainNavigationShell extends StatefulWidget {
 
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
+  bool _hasShownCongrats = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupPendingPartnerListener();
+  }
+
+  @override
+  void dispose() {
+    WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
+    super.dispose();
+  }
+
+  Future<void> _setupPendingPartnerListener() async {
+    try {
+      final status = await ApiService.instance.getUserStatus();
+      final relationship = status['relationship'];
+      if (relationship != null) {
+        final int relationshipId = relationship['id'];
+        
+        // If partner is not connected yet, listen for connection
+        if (relationship['user_two_id'] == null) {
+          await WebSocketService.instance.connect(relationshipId);
+          WebSocketService.instance.addListener('App\\Events\\PartnerConnected', _onPartnerConnected);
+        } else {
+          // If partner is already connected, check if we showed the congrats popup yet
+          final prefs = await SharedPreferences.getInstance();
+          final key = 'seen_pairing_congrats_$relationshipId';
+          final seen = prefs.getBool(key) ?? false;
+          
+          if (!seen && !_hasShownCongrats) {
+            final partnerData = status['partner'] ?? {
+              'name': 'My Love',
+              'email': '',
+            };
+            _onPartnerConnected({
+              'relationship_id': relationshipId,
+              'partner': partnerData,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Error setting up pending partner listener: $e');
+    }
+  }
+
+  void _onPartnerConnected(Map<String, dynamic> data) async {
+    if (!mounted || _hasShownCongrats) return;
+    _hasShownCongrats = true;
+
+    final int relationshipId = data['relationship_id'] ?? 0;
+    if (relationshipId > 0) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('seen_pairing_congrats_$relationshipId', true);
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          elevation: 16,
+          backgroundColor: const Color(0xFFFFF5F7),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Heart Stack
+                Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFECEF),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFDE1B5D).withOpacity(0.2),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.favorite_rounded,
+                        size: 40,
+                        color: Color(0xFFDE1B5D),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Title
+                const Text(
+                  'Hearts Connected!',
+                  style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2C1820),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                
+                // Content
+                Text(
+                  '${data['partner']['name']} (${data['partner']['email']}) has successfully registered and connected with you!\n\nYour shared sanctuary is now fully active.',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF8E717D),
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                
+                // Gradient Confirm Button
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFFDE1B5D),
+                        Color(0xFF8A003D),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFB5003F).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
+                      
+                      // Refresh navigation shell state by reloading it
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainNavigationShell()),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: const Text(
+                      'Awesome!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   final List<Widget> _screens = [
     const HomeScreen(),

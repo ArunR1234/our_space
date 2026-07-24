@@ -23,19 +23,7 @@ class WelcomeScreen extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Floating background heart top-left
-            Positioned(
-              top: 150,
-              left: -50,
-              child: Opacity(
-                opacity: 0.15,
-                child: Icon(
-                  Icons.favorite_rounded,
-                  size: 250,
-                  color: const Color(0xFFB5003F).withOpacity(0.5),
-                ),
-              ),
-            ),
+
             
 
             
@@ -55,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
                       children: [
                         // Pink heart background
                         Opacity(
-                          opacity: 0.6,
+                          opacity: 0.0,
                           child: Icon(
                             Icons.favorite_outline_rounded,
                             size: 180,
@@ -99,7 +87,7 @@ class WelcomeScreen extends StatelessWidget {
                                 ),
                                 SizedBox(height: 6),
                                 Text(
-                                  'AETHELIA',
+                                  'A  V',
                                   style: TextStyle(
                                     fontSize: 10,
                                     letterSpacing: 1.5,
@@ -218,10 +206,13 @@ class WelcomeScreen extends StatelessWidget {
                       alignment: Alignment.bottomLeft,
                       child: Padding(
                         padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
-                        child: Icon(
-                          Icons.favorite_border_rounded,
-                          size: 32,
-                          color: const Color(0xFFFFB3C6).withOpacity(0.4),
+                        child: Opacity(
+                          opacity: 0.0,
+                          child: Icon(
+                            Icons.favorite_border_rounded,
+                            size: 32,
+                            color: const Color(0xFFFFB3C6).withOpacity(0.4),
+                          ),
                         ),
                       ),
                     ),

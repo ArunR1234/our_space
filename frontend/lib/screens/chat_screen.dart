@@ -121,6 +121,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       final newMessage = Message.fromJson(data);
       
+      // If we already have this message ID, ignore it to prevent duplicates
+      if (_messages.any((msg) => msg.id == newMessage.id)) {
+        return;
+      }
+      
       // If we are not the sender, mark it as read and add to list
       if (newMessage.senderId != _currentUserId) {
         ApiService.instance.markMessageAsRead(newMessage.id);
@@ -128,8 +133,14 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.add(newMessage.copyWith(isRead: true));
         });
       } else {
+        // If we are the sender, check if we still have a temp message to replace
         setState(() {
-          _messages.add(newMessage);
+          final index = _messages.indexWhere((msg) => msg.id == -1 && msg.content == newMessage.content);
+          if (index != -1) {
+            _messages[index] = newMessage;
+          } else {
+            _messages.add(newMessage);
+          }
         });
       }
       _scrollToBottom();

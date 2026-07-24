@@ -238,4 +238,52 @@ class ApiService {
       throw Exception('Failed to respond to date plan');
     }
   }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/forgot-password'),
+      headers: _headers(false),
+      body: jsonEncode({
+        'email': email,
+      }),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message'], 'debug_otp': data['debug_otp']};
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Failed to send reset code.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> resetPassword(String email, String otp, String newPassword) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/reset-password'),
+      headers: _headers(false),
+      body: jsonEncode({
+        'email': email,
+        'otp': otp,
+        'password': newPassword,
+        'password_confirmation': newPassword,
+      }),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message']};
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Failed to reset password.'};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPairing() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/cancel-pairing'),
+      headers: _headers(),
+    );
+    final data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message']};
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Failed to cancel pairing.'};
+    }
+  }
 }
