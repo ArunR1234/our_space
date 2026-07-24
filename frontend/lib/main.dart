@@ -12,16 +12,16 @@ void main() async {
   // Initialize API service (loads saved authentication token)
   await ApiService.instance.init();
 
-  runApp(const AuraApp());
+  runApp(const OurSpaceApp());
 }
 
-class AuraApp extends StatelessWidget {
-  const AuraApp({super.key});
+class OurSpaceApp extends StatelessWidget {
+  const OurSpaceApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Aura',
+      title: 'Our Space',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

@@ -37,15 +37,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
             
-            // Settings Button in top right
-            Positioned(
-              top: 50,
-              right: 16,
-              child: IconButton(
-                icon: const Icon(Icons.settings_rounded, color: Color(0xFFB5003F)),
-                onPressed: () => _showSettingsDialog(context),
-              ),
-            ),
+
             
             // Main content
             SafeArea(
@@ -126,7 +118,7 @@ class WelcomeScreen extends StatelessWidget {
                     
                     // Title
                     const Text(
-                      'Aura',
+                      'Our Space',
                       style: TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 48,
@@ -139,7 +131,7 @@ class WelcomeScreen extends StatelessWidget {
                     
                     // Subtitle
                     const Text(
-                      'Connections through digital tenderness',
+                      'A place for us.',
                       style: TextStyle(
                         fontSize: 15,
                         fontStyle: FontStyle.italic,

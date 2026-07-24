@@ -13,10 +13,10 @@ import 'package:frontend/main.dart';
 void main() {
   testWidgets('App renders dashboard screen smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const AuraApp());
+    await tester.pumpWidget(const OurSpaceApp());
 
-    // Verify that the title "Aura" is rendered on the welcome screen.
-    expect(find.text('Aura'), findsOneWidget);
+    // Verify that the title "Our Space" is rendered on the welcome screen.
+    expect(find.text('Our Space'), findsOneWidget);
     expect(find.text('Tap to begin'), findsOneWidget);
   });
 }

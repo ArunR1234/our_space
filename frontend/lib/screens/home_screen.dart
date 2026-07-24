@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
           color: Color(0xFFB5003F),
         ),
         title: const Text(
-          'Aura',
+          'Our Space',
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 24,

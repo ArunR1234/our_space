@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'arun@aura.com'); // Defaults to seeded user
+  final _emailController = TextEditingController(text: 'arun@ourspace.com'); // Defaults to seeded user
   final _passwordController = TextEditingController(text: 'password');
   bool _isLoading = false;
   String? _errorMessage;
@@ -108,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     
                     // Logo Header
                     const Text(
-                      'Aura',
+                      'Our Space',
                       style: TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 40,
@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'Where hearts connect.',
+                      'A place for us.',
                       style: TextStyle(
                         fontSize: 14,
                         fontStyle: FontStyle.italic,
@@ -191,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
                               prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
-                              hintText: 'heart@aura.com',
+                              hintText: 'heart@ourspace.com',
                               hintStyle: const TextStyle(color: Colors.black26),
                               filled: true,
                               fillColor: const Color(0xFFFFF5F7),
@@ -309,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Text(
-                          'New to Aura? ',
+                          'New to Our Space? ',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color(0xFF8E717D),

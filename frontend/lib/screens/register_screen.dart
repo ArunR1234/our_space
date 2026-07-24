@@ -92,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 // Header Title
                 const Text(
-                  'Aura',
+                  'Our Space',
                   style: TextStyle(
                     fontFamily: 'Georgia',
                     fontSize: 32,
@@ -102,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Begin your story of connection',
+                  'A place for us.',
                   style: TextStyle(
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
@@ -201,7 +201,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
-                          hintText: 'evelyn@aura.com',
+                          hintText: 'evelyn@ourspace.com',
                           hintStyle: const TextStyle(color: Colors.black26),
                           filled: true,
                           fillColor: const Color(0xFFFFF5F7),
@@ -361,7 +361,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
-                    'BY JOINING AURA, YOU AGREE TO OUR\nTERMS OF ELEGANCE & PRIVACY PROMISE',
+                    'BY JOINING OUR SPACE, YOU AGREE TO OUR\nTERMS OF ELEGANCE & PRIVACY PROMISE',
                     style: TextStyle(
                       fontSize: 8,
                       fontWeight: FontWeight.w500,

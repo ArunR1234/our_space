@@ -15,25 +15,39 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _messageFocusNode = FocusNode();
   List<Message> _messages = [];
   bool _isLoading = true;
-  bool _isSending = false;
+  bool _isTextEmpty = true;
   int? _relationshipId;
   Map<String, dynamic>? _partner;
   int? _currentUserId;
+  DateTime? _lastSendTime;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(_onTextChanged);
     _loadInitialData();
   }
 
   @override
   void dispose() {
     _disconnectWebSocket();
+    _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
     _scrollController.dispose();
+    _messageFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onTextChanged() {
+    final isEmpty = _messageController.text.trim().isEmpty;
+    if (isEmpty != _isTextEmpty) {
+      setState(() {
+        _isTextEmpty = isEmpty;
+      });
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -154,15 +168,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleSendMessage() async {
-    if (_isSending) return;
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _isSending = true;
-    });
+    final now = DateTime.now();
+    if (_lastSendTime != null && now.difference(_lastSendTime!) < const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastSendTime = now;
 
+    // Clear input field and retain keyboard focus instantly
     _messageController.clear();
+    _messageFocusNode.requestFocus();
 
     // Create a temporary message for instant UI updates (optimistic update)
     final tempMessage = Message(
@@ -197,10 +214,9 @@ class _ChatScreenState extends State<ChatScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to send message.')),
       );
-    } finally {
       if (mounted) {
         setState(() {
-          _isSending = false;
+          _messages.removeWhere((msg) => msg.id == -1 && msg.content == text);
         });
       }
     }
@@ -415,108 +431,116 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildMessageBubble(Message message, bool isMe) {
     final timeStr = DateFormat('h:mm a').format(message.createdAt.toLocal());
+    final isSending = message.id == -1;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (!isMe) ...[
-                const CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Color(0xFFFFECEF),
-                  child: Icon(Icons.person_rounded, size: 14, color: Color(0xFFB5003F)),
-                ),
-                const SizedBox(width: 6),
-              ],
-              GestureDetector(
-                onLongPress: () => _showReactionSheet(message),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.7,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: isMe ? const Color(0xFFB5003F) : const Color(0xFFFFE3E8),
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(20),
-                          topRight: const Radius.circular(20),
-                          bottomLeft: Radius.circular(isMe ? 20 : 4),
-                          bottomRight: Radius.circular(isMe ? 4 : 20),
-                        ),
-                      ),
-                      child: Text(
-                        message.content,
-                        style: TextStyle(
-                          color: isMe ? Colors.white : const Color(0xFF2C1820),
-                          fontSize: 15,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    
-                    // Message reaction overlay
-                    if (message.reaction != null)
-                      Positioned(
-                        bottom: -10,
-                        right: isMe ? null : 12,
-                        left: isMe ? 12 : null,
-                        child: Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            message.reaction!,
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Timestamp & read checkmarks
-          Padding(
-            padding: EdgeInsets.only(
-              left: isMe ? 0 : 32.0,
-              right: isMe ? 8.0 : 0,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Opacity(
+      opacity: isSending ? 0.6 : 1.0,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Column(
+          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  timeStr,
-                  style: const TextStyle(fontSize: 9, color: Color(0xFF8E717D)),
-                ),
-                if (isMe) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    message.isRead ? Icons.done_all_rounded : Icons.done_rounded,
-                    size: 11,
-                    color: message.isRead ? const Color(0xFFB5003F) : const Color(0xFF8E717D),
+                if (!isMe) ...[
+                  const CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Color(0xFFFFECEF),
+                    child: Icon(Icons.person_rounded, size: 14, color: Color(0xFFB5003F)),
                   ),
+                  const SizedBox(width: 6),
                 ],
+                GestureDetector(
+                  onLongPress: isSending ? null : () => _showReactionSheet(message),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width * 0.7,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: isMe ? const Color(0xFFB5003F) : const Color(0xFFFFE3E8),
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(20),
+                            topRight: const Radius.circular(20),
+                            bottomLeft: Radius.circular(isMe ? 20 : 4),
+                            bottomRight: Radius.circular(isMe ? 4 : 20),
+                          ),
+                        ),
+                        child: Text(
+                          message.content,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : const Color(0xFF2C1820),
+                            fontSize: 15,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      
+                      // Message reaction overlay
+                      if (message.reaction != null)
+                        Positioned(
+                          bottom: -10,
+                          right: isMe ? null : 12,
+                          left: isMe ? 12 : null,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              message.reaction!,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            // Timestamp & read checkmarks
+            Padding(
+              padding: EdgeInsets.only(
+                left: isMe ? 0 : 32.0,
+                right: isMe ? 8.0 : 0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    timeStr,
+                    style: const TextStyle(fontSize: 9, color: Color(0xFF8E717D)),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      isSending
+                          ? Icons.access_time_rounded
+                          : (message.isRead ? Icons.done_all_rounded : Icons.done_rounded),
+                      size: 11,
+                      color: isSending
+                          ? const Color(0xFF8E717D)
+                          : (message.isRead ? const Color(0xFFB5003F) : const Color(0xFF8E717D)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -535,6 +559,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
+                focusNode: _messageFocusNode,
                 decoration: InputDecoration(
                   hintText: 'Type your heart...',
                   hintStyle: const TextStyle(color: Colors.black26),
@@ -547,15 +572,17 @@ class _ChatScreenState extends State<ChatScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
                 textCapitalization: TextCapitalization.sentences,
-                onSubmitted: _isSending ? null : (_) => _handleSendMessage(),
+                onSubmitted: _isTextEmpty ? null : (_) => _handleSendMessage(),
               ),
             ),
             const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: _isSending ? null : _handleSendMessage,
+              onPressed: _isTextEmpty ? null : _handleSendMessage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFB5003F),
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFB5003F),
+                disabledForegroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(

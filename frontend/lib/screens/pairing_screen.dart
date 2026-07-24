@@ -271,7 +271,7 @@ class _PairingScreenState extends State<PairingScreen> {
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
-                            hintText: 'partner@aura.com',
+                            hintText: 'partner@ourspace.com',
                             hintStyle: const TextStyle(color: Colors.black26),
                             filled: true,
                             fillColor: const Color(0xFFFFF5F7),
