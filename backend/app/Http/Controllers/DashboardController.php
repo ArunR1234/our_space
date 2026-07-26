@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use App\Models\DatePlan;
+use App\Events\AnniversaryUpdated;
 
 class DashboardController extends Controller
 {
@@ -52,10 +53,38 @@ class DashboardController extends Controller
         return response()->json([
             'paired' => true,
             'relationship_id' => $relationship->id,
+            'user_id' => $user->id,
+            'anniversary_date' => $relationship->anniversary_date,
             'days_together' => $daysTogether,
             'next_date' => $nextDate,
             'romantic_quote' => $quote,
             'partner' => $user->partner(),
+        ]);
+    }
+
+    public function updateAnniversary(Request $request)
+    {
+        $request->validate([
+            'anniversary_date' => 'required|date',
+        ]);
+
+        $user = $request->user();
+        $relationship = $user->relationship;
+
+        if (!$relationship) {
+            return response()->json(['message' => 'No relationship setup.'], 403);
+        }
+
+        $relationship->update([
+            'anniversary_date' => $request->anniversary_date,
+        ]);
+
+        broadcast(new AnniversaryUpdated($relationship->id, $relationship->anniversary_date))->toOthers();
+
+        return response()->json([
+            'status' => 'success',
+            'anniversary_date' => $relationship->anniversary_date,
+            'message' => 'Proposal date updated successfully.'
         ]);
     }
 }

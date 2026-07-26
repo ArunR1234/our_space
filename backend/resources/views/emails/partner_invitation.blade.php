@@ -1,107 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connect on Aura</title>
-    <style>
-        body {
-            background-color: #FFF5F7;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 40px 20px;
-            color: #2C1820;
-            line-height: 1.6;
-        }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(181, 0, 63, 0.05);
-            text-align: center;
-        }
-        .heart-badge {
-            width: 70px;
-            height: 70px;
-            background-color: #FFF5F7;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 24px;
-        }
-        .heart-icon {
-            font-size: 32px;
-            color: #B5003F;
-        }
-        h1 {
-            font-family: "Georgia", serif;
-            font-size: 24px;
-            font-weight: bold;
-            color: #B5003F;
-            margin: 0 0 16px 0;
-        }
-        p {
-            font-size: 15px;
-            color: #64748B;
-            margin: 0 0 24px 0;
-        }
-        strong {
-            color: #2C1820;
-        }
-        .action-button {
-            display: inline-block;
-            background-color: #B5003F;
-            color: #ffffff !important;
-            text-decoration: none;
-            padding: 16px 36px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 15px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 10px rgba(181, 0, 63, 0.2);
-            transition: all 0.2s ease-in-out;
-        }
-        .footer {
-            font-size: 12px;
-            color: #94A3B8;
-            margin-top: 32px;
-            border-top: 1px solid #F1F5F9;
-            padding-top: 24px;
-        }
-        .footer-logo {
-            font-family: "Georgia", serif;
-            font-weight: bold;
-            color: #B5003F;
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Hearts – Our Space</title>
+  <style>
+    body { margin: 0; padding: 0; background: #FFF5F7; font-family: 'Georgia', serif; }
+    .wrapper { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(181,0,63,0.08); }
+    .header { background: linear-gradient(135deg, #B5003F 0%, #8A003D 100%); padding: 36px 32px; text-align: center; }
+    .header .emoji { font-size: 36px; display: block; margin-bottom: 10px; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 26px; letter-spacing: 1px; }
+    .header p  { margin: 6px 0 0; color: rgba(255,255,255,0.8); font-size: 13px; letter-spacing: 0.5px; }
+    .body { padding: 36px 32px; text-align: center; }
+    .body .greeting { font-size: 20px; color: #2C1820; font-weight: bold; margin-bottom: 12px; }
+    .body .message { font-size: 15px; color: #8E717D; line-height: 1.7; margin-bottom: 28px; }
+    .body .message strong { color: #B5003F; }
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #B5003F, #8A003D);
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 16px 40px;
+      border-radius: 30px;
+      font-size: 15px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 16px rgba(181,0,63,0.25);
+      margin-bottom: 28px;
+    }
+    .note { font-size: 12px; color: #B5003F; margin-top: 8px; }
+    .steps { text-align: left; background: #FFF5F7; border-radius: 14px; padding: 20px 24px; margin: 24px 0; }
+    .steps p { font-size: 13px; color: #2C1820; margin: 6px 0; }
+    .steps p span { color: #B5003F; font-weight: bold; margin-right: 8px; }
+    .footer { background: #FFF5F7; padding: 20px 32px; text-align: center; }
+    .footer p { font-size: 12px; color: #B5003F; margin: 0; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="heart-badge">
-            <span class="heart-icon">♥</span>
-        </div>
-        
-        <h1>Connect with {{ $senderName }}</h1>
-        
-        <p>
-            Your partner, <strong>{{ $senderName }}</strong>, has invited you to connect on <strong>Aura</strong>, the private couples space where hearts stay connected.
-        </p>
-        
-        <p>
-            Once you register, your accounts will be automatically paired, allowing you to instantly share live real-time chats, propose date plans, and count your special days together!
-        </p>
-        
-        <a href="http://localhost:8000" class="action-button">Join Aura Now</a>
-        
-        <div class="footer">
-            <div class="footer-logo">Aura</div>
-            <div>Where hearts connect • Premium Digital Tenderness</div>
-        </div>
+  <div class="wrapper">
+    <div class="header">
+      <span class="emoji">💕</span>
+      <h1>Our Space</h1>
+      <p>Your private couples universe</p>
     </div>
+    <div class="body">
+      <p class="greeting">Someone special is waiting for you!</p>
+      <p class="message">
+        <strong>{{ $senderName }}</strong> has invited you to connect on <strong>Our Space</strong>
+        the private app built just for the two of you. Share moments, plan meet-ups, and stay close no matter the distance.
+      </p>
+
+      <p>Sent with love by Our Space ❤️ · Where hearts connect</p>
+    </div>
+  </div>
 </body>
 </html>

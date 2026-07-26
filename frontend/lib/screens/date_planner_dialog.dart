@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 
 class DatePlannerDialog extends StatefulWidget {
-  const DatePlannerDialog({super.key});
+  final Map<String, dynamic>? initialDatePlan;
+  const DatePlannerDialog({super.key, this.initialDatePlan});
 
   @override
   State<DatePlannerDialog> createState() => _DatePlannerDialogState();
@@ -15,6 +16,18 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
   DateTime? _selectedDateTime;
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDatePlan != null) {
+      _titleController.text = widget.initialDatePlan!['title'] ?? '';
+      _locationController.text = widget.initialDatePlan!['location'] ?? '';
+      try {
+        _selectedDateTime = DateTime.parse(widget.initialDatePlan!['date']).toLocal();
+      } catch (_) {}
+    }
+  }
 
   Future<void> _pickDateTime() async {
     final pickedDate = await showDatePicker(
@@ -79,7 +92,7 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
 
     if (title.isEmpty) {
       setState(() {
-        _errorMessage = 'Please enter a title for the date.';
+        _errorMessage = 'Please enter a title for the meet-up.';
       });
       return;
     }
@@ -96,171 +109,188 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
     });
 
     try {
-      await ApiService.instance.proposeDatePlan(title, _selectedDateTime!, location.isEmpty ? null : location);
+      if (widget.initialDatePlan != null) {
+        final int planId = widget.initialDatePlan!['id'];
+        await ApiService.instance.updateDatePlan(planId, title, _selectedDateTime!, location.isEmpty ? null : location);
+      } else {
+        await ApiService.instance.proposeDatePlan(title, _selectedDateTime!, location.isEmpty ? null : location);
+      }
       if (mounted) {
-        Navigator.pop(context, true); // Returns true to trigger dashboard refresh
+        Navigator.pop(context, true);
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to propose date plan. Please try again.';
+        _errorMessage = widget.initialDatePlan != null
+            ? 'Failed to update meet-up plan. Please try again.'
+            : 'Failed to propose meet-up plan. Please try again.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    final double maxDialogHeight = screenHeight - keyboardHeight - 100;
+
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
       backgroundColor: const Color(0xFFFFF5F7),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Plan Date Tonight',
-                    style: TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C1820),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxDialogHeight),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      widget.initialDatePlan != null ? 'Edit Meet-up Details' : 'Plan Meet-up Tonight',
+                      style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C1820),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Color(0xFF8E717D)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Title Field
-              const Text(
-                'Date Title',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Candlelit Dinner',
-                  hintStyle: const TextStyle(color: Colors.black26),
-                  filled: true,
-                  fillColor: const Color(0xFFFFECEF),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF8E717D)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // Location Field
-              const Text(
-                'Location (Optional)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _locationController,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Bella Italia Restaurant',
-                  hintStyle: const TextStyle(color: Colors.black26),
-                  filled: true,
-                  fillColor: const Color(0xFFFFECEF),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                const SizedBox(height: 16),
+                
+                // Title Field
+                const Text(
+                  'Meet-up Title',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              // DateTime Picker
-              const Text(
-                'Date & Time',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
-              ),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: _pickDateTime,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFECEF),
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Candlelit Dinner',
+                    hintStyle: const TextStyle(color: Colors.black26),
+                    filled: true,
+                    fillColor: const Color(0xFFFFECEF),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFFB5003F)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _selectedDateTime != null
-                              ? DateFormat('EEEE, MMM d, y • h:mm a').format(_selectedDateTime!)
-                              : 'Select Date & Time',
-                          style: TextStyle(
-                            color: _selectedDateTime != null ? const Color(0xFF2C1820) : Colors.black26,
-                            fontSize: 14,
+                ),
+                const SizedBox(height: 16),
+  
+                // Location Field
+                const Text(
+                  'Location (Optional)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _locationController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Bella Italia Restaurant',
+                    hintStyle: const TextStyle(color: Colors.black26),
+                    filled: true,
+                    fillColor: const Color(0xFFFFECEF),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 16),
+  
+                // DateTime Picker
+                const Text(
+                  'Date & Time',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
+                ),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: _pickDateTime,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFECEF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFFB5003F)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _selectedDateTime != null
+                                ? DateFormat('EEEE, MMM d, y • h:mm a').format(_selectedDateTime!)
+                                : 'Select Date & Time',
+                            style: TextStyle(
+                              color: _selectedDateTime != null ? const Color(0xFF2C1820) : Colors.black26,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              
-              const SizedBox(height: 20),
-
-              if (_errorMessage != null) ...[
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Color(0xFFB5003F), fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              ElevatedButton(
-                onPressed: _isLoading ? null : _handleSubmit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB5003F),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                
+                const SizedBox(height: 20),
+  
+                if (_errorMessage != null) ...[
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Color(0xFFB5003F), fontSize: 13),
+                    textAlign: TextAlign.center,
                   ),
-                  elevation: 0,
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  const SizedBox(height: 12),
+                ],
+  
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _handleSubmit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB5003F),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              widget.initialDatePlan != null ? 'Update Meet-up Details' : 'Propose Meet-up',
+                              style: const TextStyle(fontWeight: FontWeight.bold)
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.favorite_border_rounded, size: 16),
+                          ],
                         ),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('Propose Date Journey', style: TextStyle(fontWeight: FontWeight.bold)),
-                          SizedBox(width: 8),
-                          Icon(Icons.favorite_border_rounded, size: 16),
-                        ],
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

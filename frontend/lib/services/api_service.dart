@@ -151,6 +151,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateAnniversaryDate(String date) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/relationship/anniversary'),
+      headers: _headers(),
+      body: jsonEncode({
+        'anniversary_date': date,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update proposal date');
+    }
+  }
+
   Future<List<dynamic>> getMessages() async {
     final response = await http.get(
       Uri.parse('$baseUrl/chat-messages'),
@@ -239,7 +254,7 @@ class ApiService {
       headers: _headers(),
       body: jsonEncode({
         'title': title,
-        'date': date.toIso8601String(),
+        'date': date.toUtc().toIso8601String(),
         'location': location,
       }),
     );
@@ -262,6 +277,33 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to respond to date plan');
+    }
+  }
+
+  Future<Map<String, dynamic>> updateDatePlan(int planId, String title, DateTime date, String? location) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/date-plans/$planId'),
+      headers: _headers(),
+      body: jsonEncode({
+        'title': title,
+        'date': date.toUtc().toIso8601String(),
+        'location': location,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update date plan');
+    }
+  }
+
+  Future<void> deleteDatePlan(int planId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/date-plans/$planId'),
+      headers: _headers(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to cancel date plan');
     }
   }
 

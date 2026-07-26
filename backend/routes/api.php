@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cancel-pairing', [AuthController::class, 'cancelPairing']);
     
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
+    Route::post('/relationship/anniversary', [DashboardController::class, 'updateAnniversary']);
     
     Route::get('/chat-messages', [ChatController::class, 'getMessages']);
     Route::post('/chat-messages', [ChatController::class, 'sendMessage']);
@@ -30,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/date-plans', [DatePlanController::class, 'getDatePlans']);
     Route::post('/date-plans', [DatePlanController::class, 'proposeDatePlan']);
     Route::post('/date-plans/{id}/respond', [DatePlanController::class, 'respondToDatePlan']);
+    Route::put('/date-plans/{id}', [DatePlanController::class, 'updateDatePlan']);
+    Route::delete('/date-plans/{id}', [DatePlanController::class, 'deleteDatePlan']);
 });
 
 Route::get('/db-status', function () {

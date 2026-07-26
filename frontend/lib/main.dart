@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -124,6 +125,9 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   int _currentIndex = 0;
   bool _hasShownCongrats = false;
+  Timer? _globalHeartbeatTimer;
+  int? _globalRelationshipId;
+  int? _globalUserId;
 
   @override
   void initState() {
@@ -133,6 +137,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   void dispose() {
+    _globalHeartbeatTimer?.cancel();
+    _globalHeartbeatTimer = null;
     WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
     super.dispose();
   }
@@ -144,9 +150,41 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       if (relationship != null) {
         final int relationshipId = relationship['id'];
         
+        // Always connect to the WebSocket service to support real-time features on all screens
+        await WebSocketService.instance.connect(relationshipId);
+
+        // Broadcast online status immediately when user enters the app
+        _globalRelationshipId = relationshipId;
+        final statusData = await ApiService.instance.getUserStatus();
+        _globalUserId = statusData['user']?['id'];
+
+        if (_globalUserId != null) {
+          // Send initial online ping
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted && _globalRelationshipId != null && _globalUserId != null) {
+              WebSocketService.instance.triggerClientEvent(
+                'client-status',
+                _globalRelationshipId!,
+                {'status': 'online', 'user_id': _globalUserId},
+              );
+            }
+          });
+
+          // Keep broadcasting online every 8 seconds while app is open
+          _globalHeartbeatTimer?.cancel();
+          _globalHeartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+            if (mounted && _globalRelationshipId != null && _globalUserId != null) {
+              WebSocketService.instance.triggerClientEvent(
+                'client-status',
+                _globalRelationshipId!,
+                {'status': 'online', 'user_id': _globalUserId},
+              );
+            }
+          });
+        }
+
         // If partner is not connected yet, listen for connection
         if (relationship['user_two_id'] == null) {
-          await WebSocketService.instance.connect(relationshipId);
           WebSocketService.instance.addListener('App\\Events\\PartnerConnected', _onPartnerConnected);
         } else {
           // If partner is already connected, check if we showed the congrats popup yet
@@ -318,32 +356,37 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: const Color(0xFFB5003F).withOpacity(0.08),
-              width: 1,
+      bottomNavigationBar: isKeyboardOpen
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: const Color(0xFFB5003F).withOpacity(0.08),
+                    width: 1,
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: SafeArea(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(0, Icons.home_rounded),
+                    _buildNavItem(1, Icons.chat_bubble_rounded),
+                    _buildNavItem(2, Icons.phone_rounded),
+                    _buildNavItem(3, Icons.person_rounded),
+                    _buildNavItem(4, Icons.palette_rounded),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: SafeArea(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_rounded),
-              _buildNavItem(1, Icons.chat_bubble_rounded),
-              _buildNavItem(2, Icons.phone_rounded),
-              _buildNavItem(3, Icons.person_rounded),
-              _buildNavItem(4, Icons.palette_rounded),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -487,6 +530,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleLogout() async {
+    WebSocketService.instance.disconnect();
     await ApiService.instance.logout();
     if (mounted) {
       Navigator.pushAndRemoveUntil(

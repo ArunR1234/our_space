@@ -32,13 +32,32 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _partnerTypingTimeoutTimer;
   Timer? _heartbeatTimer;
   DateTime? _lastPartnerHeartbeat;
+  bool _isUserNearBottom = true;
+  int _unreadCount = 0;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_onTextChanged);
     _messageFocusNode.addListener(_onFocusChange);
+    _scrollController.addListener(_onScroll);
     _loadInitialData();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final nearBottom = _scrollController.offset <= 120.0;
+      // Update without setState — _isUserNearBottom is not rendered directly
+      if (nearBottom != _isUserNearBottom) {
+        _isUserNearBottom = nearBottom;
+        // Only rebuild when we need to hide the banner
+        if (nearBottom && _unreadCount > 0) {
+          setState(() {
+            _unreadCount = 0;
+          });
+        }
+      }
+    }
   }
 
   @override
@@ -56,6 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _heartbeatTimer?.cancel();
     _messageController.removeListener(_onTextChanged);
     _messageFocusNode.removeListener(_onFocusChange);
+    _scrollController.removeListener(_onScroll);
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();
@@ -136,7 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _isLoading = false;
         });
-        _scrollToBottom();
+        _scrollToBottomForced();
       }
     }
   }
@@ -148,7 +168,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _messages = messagesJson.map((json) => Message.fromJson(json)).toList();
         });
-        _scrollToBottom();
+        _scrollToBottomForced();
       }
     } catch (e) {
       print('Error loading messages: $e');
@@ -195,7 +215,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Start periodic heartbeat timer
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted && _relationshipId != null && _currentUserId != null) {
         WebSocketService.instance.triggerClientEvent(
           'client-status', 
@@ -207,7 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
       // Offline threshold check
       if (_isPartnerOnline && _lastPartnerHeartbeat != null) {
         final diff = DateTime.now().difference(_lastPartnerHeartbeat!);
-        if (diff.inSeconds > 20) {
+        if (diff.inSeconds > 35) {
           setState(() {
             _isPartnerOnline = false;
             _isPartnerTyping = false;
@@ -228,7 +248,6 @@ class _ChatScreenState extends State<ChatScreen> {
     WebSocketService.instance.removeListener('client-status-request', _onClientStatusRequestReceived);
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
-    WebSocketService.instance.disconnect();
   }
 
   void _onClientTypingReceived(Map<String, dynamic> data) {
@@ -291,6 +310,10 @@ class _ChatScreenState extends State<ChatScreen> {
         ApiService.instance.markMessageAsRead(newMessage.id);
         setState(() {
           _messages.add(newMessage.copyWith(isRead: true));
+          // Count unread when user is scrolled away
+          if (!_isUserNearBottom) {
+            _unreadCount++;
+          }
         });
       } else {
         // If we are the sender, check if we still have a temp message to replace
@@ -442,7 +465,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.add(tempMessage);
     });
-    _scrollToBottom();
+    _scrollToBottomForced();
 
     try {
       final response = await ApiService.instance.sendMessage(text, replyToId: replyId);
@@ -644,7 +667,24 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  /// Scroll to bottom only if user is currently near the bottom.
+  /// Used for new incoming messages — respects user's scroll position.
   void _scrollToBottom() {
+    if (!_isUserNearBottom) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  /// Always scroll to bottom regardless of position.
+  /// Used only for initial load and when user sends a message.
+  void _scrollToBottomForced() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -729,16 +769,86 @@ class _ChatScreenState extends State<ChatScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.all(16.0),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[_messages.length - 1 - index];
-                      final isMe = message.senderId == _currentUserId;
-                      return _buildMessageBubble(message, isMe);
-                    },
+                  child: Stack(
+                    children: [
+                      ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.only(
+                          left: 16, right: 16, top: 16, bottom: 8),
+                        itemCount: _messages.length,
+                        // ValueKey prevents layout jerk when new messages arrive
+                        itemBuilder: (context, index) {
+                          final message = _messages[_messages.length - 1 - index];
+                          final isMe = message.senderId == _currentUserId;
+                          return KeyedSubtree(
+                            key: ValueKey(message.id),
+                            child: _buildMessageBubble(message, isMe),
+                          );
+                        },
+                      ),
+                      // ─── New message floating banner ───────────────────
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          transitionBuilder: (child, animation) => SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 1),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                          child: _unreadCount > 0
+                              ? GestureDetector(
+                                  key: const ValueKey('banner'),
+                                  onTap: () {
+                                    setState(() => _unreadCount = 0);
+                                    _scrollToBottomForced();
+                                  },
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFB5003F),
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFFB5003F)
+                                                .withValues(alpha: 0.35),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.arrow_downward,
+                                              color: Colors.white, size: 14),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _unreadCount == 1
+                                                ? '1 new message'
+                                                : '$_unreadCount new messages',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('empty')),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 _buildMessageInput(),
@@ -778,6 +888,38 @@ class _ChatScreenState extends State<ChatScreen> {
                   ],
                   GestureDetector(
                     onLongPress: isSending ? null : () => _showReactionSheet(message),
+                    onDoubleTap: isSending
+                        ? null
+                        : () async {
+                            final String? myReaction = isMe ? message.senderReaction : message.receiverReaction;
+                            final isRemoving = myReaction == '❤️';
+                            
+                            // Optimistic update
+                            setState(() {
+                              _messages = _messages.map((msg) {
+                                if (msg.id == message.id) {
+                                  if (isMe) {
+                                    return msg.copyWith(
+                                      senderReaction: isRemoving ? null : '❤️',
+                                      clearSenderReaction: isRemoving,
+                                    );
+                                  } else {
+                                    return msg.copyWith(
+                                      receiverReaction: isRemoving ? null : '❤️',
+                                      clearReceiverReaction: isRemoving,
+                                    );
+                                  }
+                                }
+                                return msg;
+                              }).toList();
+                            });
+
+                            try {
+                              await ApiService.instance.reactToMessage(message.id, isRemoving ? null : '❤️');
+                            } catch (e) {
+                              print('Error reacting: $e');
+                            }
+                          },
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [

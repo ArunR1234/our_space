@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Relationship;
+use App\Mail\OtpMail;
 use App\Mail\PartnerInvitationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -176,11 +177,18 @@ class AuthController extends Controller
             ]
         );
 
-        logger()->info("Password reset OTP for {$email} is: {$otp}");
+        // Send OTP email
+        try {
+            Mail::to($email)->send(new OtpMail($otp));
+        } catch (\Exception $e) {
+            logger()->error("Failed to send OTP email to {$email}: " . $e->getMessage());
+            return response()->json(['message' => 'Failed to send reset email. Please try again.'], 500);
+        }
+
+        logger()->info("Password reset OTP sent to {$email}");
 
         return response()->json([
             'message' => 'Reset code sent successfully.',
-            'debug_otp' => config('app.debug') ? $otp : null
         ]);
     }
 

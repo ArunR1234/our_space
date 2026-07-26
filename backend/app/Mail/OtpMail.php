@@ -3,28 +3,23 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class PartnerInvitationMail extends Mailable
+class OtpMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new message instance.
-     */
-    public $senderName;
+    public string $otp;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($senderName)
+    public function __construct(string $otp)
     {
-        $this->senderName = $senderName;
+        $this->otp = $otp;
     }
 
     /**
@@ -33,7 +28,7 @@ class PartnerInvitationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "{$this->senderName} invited you to join Our Space",
+            subject: 'Your Our Space Password Reset Code',
         );
     }
 
@@ -43,9 +38,9 @@ class PartnerInvitationMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.partner_invitation',
-            text: 'emails.partner_invitation_text',
-            with: ['senderName' => $this->senderName],
+            view: 'emails.otp',
+            text: 'emails.otp_text',
+            with: ['otp' => $this->otp],
         );
     }
 
@@ -57,15 +52,12 @@ class PartnerInvitationMail extends Mailable
         return $this->withSymfonyMessage(function (\Symfony\Component\Mime\Email $message) {
             $message->getHeaders()
                 ->addTextHeader('X-Mailer', 'Our Space Mailer')
-                ->addTextHeader('Precedence', 'bulk')
                 ->addTextHeader('X-Auto-Response-Suppress', 'OOF, AutoReply');
         });
     }
 
     /**
      * Get the attachments for the message.
-     *
-     * @return array<int, Attachment>
      */
     public function attachments(): array
     {
