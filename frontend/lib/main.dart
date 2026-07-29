@@ -1593,52 +1593,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showRenameDialog() {
     _nameController.text = _user?['name'] ?? '';
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Color(0xFFFFECEF),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            'Edit Display Name',
-            style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold),
+      isScrollControlled: true,   // lets the sheet resize above the keyboard
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) {
+        final primary = Theme.of(ctx).colorScheme.primary;
+        return Padding(
+          // This is the key: adds padding equal to keyboard height
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFECEF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle bar
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8E717D).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Edit Display Name',
+                  style: TextStyle(fontFamily: 'Georgia', color: const Color(0xFF2C1820), fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your name...',
+                    hintStyle: TextStyle(color: const Color(0xFF8E717D).withOpacity(0.5)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: primary, width: 1.5),
+                    ),
+                  ),
+                  style: const TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF8E717D),
+                          side: const BorderSide(color: Color(0xFF8E717D)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _saveProfile();
+                        },
+                        child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          content: TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: 'Enter your name...',
-              hintStyle: TextStyle(color: Color(0xFF8E717D).withOpacity(0.5)),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-              ),
-            ),
-            style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: Color(0xFF8E717D))),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _saveProfile();
-              },
-              child: Text('Save', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-            ),
-          ],
         );
       },
     );
   }
+
 
   Future<void> _saveProfile() async {
     final name = _nameController.text.trim();
