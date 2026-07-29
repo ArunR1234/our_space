@@ -23,9 +23,6 @@ class WelcomeScreen extends StatelessWidget {
         ),
         child: Stack(
           children: [
-
-            
-
             
             // Main content
             SafeArea(
@@ -223,67 +220,6 @@ class WelcomeScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    final controller = TextEditingController(text: ApiService.instance.host);
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Configure Server Host', style: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.bold, color: Color(0xFF2C1820))),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Enter the IP address of your host machine running the Laravel backend (e.g. 10.34.246.59 or 10.0.2.2).', style: TextStyle(fontSize: 13, color: Color(0xFF8E717D))),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: 'Server Host IP',
-                  hintText: 'e.g. 10.34.246.59',
-                  filled: true,
-                  fillColor: const Color(0xFFFFF5F7),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E717D))),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB5003F),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              onPressed: () async {
-                final ip = controller.text.trim();
-                await ApiService.instance.setCustomHost(ip);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Server host set to: $ip'),
-                      backgroundColor: const Color(0xFFB5003F),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
     );
   }
 }

@@ -17,7 +17,7 @@ class ApiService {
     if (kIsWeb) {
       return '127.0.0.1';
     } else if (Platform.isAndroid) {
-      return '10.34.246.59';
+      return '10.19.193.59';
     } else {
       return '127.0.0.1';
     }
@@ -223,6 +223,16 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to edit message');
+    }
+  }
+
+  Future<void> clearChatHistory() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/chat-messages/clear'),
+      headers: _headers(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to clear chat history');
     }
   }
 

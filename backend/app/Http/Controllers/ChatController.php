@@ -21,10 +21,14 @@ class ChatController extends Controller
             return response()->json(['message' => 'No relationship setup.'], 403);
         }
 
-        $messages = Message::where('relationship_id', $relationship->id)
-            ->with('replyTo')
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $messagesQuery = Message::where('relationship_id', $relationship->id)
+            ->with('replyTo');
+
+        if ($user->chat_cleared_at) {
+            $messagesQuery->where('created_at', '>', $user->chat_cleared_at);
+        }
+
+        $messages = $messagesQuery->orderBy('created_at', 'asc')->get();
 
         // Mark incoming messages as read
         $unreadMessages = Message::where('relationship_id', $relationship->id)
@@ -162,5 +166,12 @@ class ChatController extends Controller
         broadcast(new MessageDeleted($messageId, $relationship->id))->toOthers();
 
         return response()->json(['message' => 'Message unsent successfully.']);
+    }
+
+    public function clearHistory(Request $request)
+    {
+        $user = $request->user();
+        $user->update(['chat_cleared_at' => now()]);
+        return response()->json(['message' => 'Chat history cleared.']);
     }
 }

@@ -34,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   DateTime? _lastPartnerHeartbeat;
   bool _isUserNearBottom = true;
   int _unreadCount = 0;
+  int? _firstUnreadChronoIndex;
 
   @override
   void initState() {
@@ -165,8 +166,20 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final messagesJson = await ApiService.instance.getMessages();
       if (mounted) {
+        final loadedMessages = messagesJson.map((json) => Message.fromJson(json)).toList();
+        
+        int? firstUnread;
+        for (int i = 0; i < loadedMessages.length; i++) {
+          final msg = loadedMessages[i];
+          if (!msg.isRead && msg.senderId != _currentUserId) {
+            firstUnread = i;
+            break;
+          }
+        }
+        
         setState(() {
-          _messages = messagesJson.map((json) => Message.fromJson(json)).toList();
+          _messages = loadedMessages;
+          _firstUnreadChronoIndex = firstUnread;
         });
         _scrollToBottomForced();
       }
@@ -494,6 +507,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showReactionSheet(Message message) {
+    _messageFocusNode.unfocus();
     final emojis = ['❤️', '😂', '😮', '😢', '👍', '🙏', '🔥', '🎉'];
     final bool isMe = message.senderId == _currentUserId;
     final String? myCurrentReaction = isMe ? message.senderReaction : message.receiverReaction;
@@ -696,6 +710,49 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  bool _shouldShowHeader(int index) {
+    if (index == 0) {
+      return true;
+    }
+    final currentMsg = _messages[index];
+    final prevMsg = _messages[index - 1];
+    
+    final currentLocal = currentMsg.createdAt.toLocal();
+    final prevLocal = prevMsg.createdAt.toLocal();
+    if (currentLocal.year != prevLocal.year ||
+        currentLocal.month != prevLocal.month ||
+        currentLocal.day != prevLocal.day) {
+      return true;
+    }
+    
+    if (currentMsg.createdAt.difference(prevMsg.createdAt).inMinutes.abs() > 30) {
+      return true;
+    }
+    return false;
+  }
+
+  String _formatMessageHeaderDate(DateTime dateTime) {
+    final now = DateTime.now();
+    final localDateTime = dateTime.toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final targetDate = DateTime(localDateTime.year, localDateTime.month, localDateTime.day);
+
+    final timeStr = DateFormat('h:mm a').format(localDateTime);
+
+    if (targetDate == today) {
+      return 'TODAY, $timeStr';
+    } else if (targetDate == yesterday) {
+      return 'YESTERDAY, $timeStr';
+    } else if (now.difference(localDateTime).inDays < 7) {
+      final dayName = DateFormat('EEE').format(localDateTime).toUpperCase();
+      return '$dayName, $timeStr';
+    } else {
+      final dateStr = DateFormat('MMM d').format(localDateTime).toUpperCase();
+      return '$dateStr, $timeStr';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -759,6 +816,30 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFFB5003F)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: const Color(0xFFFFECEF),
+            onSelected: (value) {
+              if (value == 'clear_chat') {
+                _confirmClearChatHistory();
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'clear_chat',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_sweep_rounded, color: Color(0xFFDE1B5D), size: 20),
+                    SizedBox(width: 8),
+                    Text('Clear Chat History', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(
@@ -779,11 +860,79 @@ class _ChatScreenState extends State<ChatScreen> {
                         itemCount: _messages.length,
                         // ValueKey prevents layout jerk when new messages arrive
                         itemBuilder: (context, index) {
-                          final message = _messages[_messages.length - 1 - index];
+                          final chronoIndex = _messages.length - 1 - index;
+                          final message = _messages[chronoIndex];
                           final isMe = message.senderId == _currentUserId;
-                          return KeyedSubtree(
-                            key: ValueKey(message.id),
-                            child: _buildMessageBubble(message, isMe),
+                          final showHeader = _shouldShowHeader(chronoIndex);
+                          final showUnreadDivider = chronoIndex == _firstUnreadChronoIndex;
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (showHeader) ...[
+                                const SizedBox(height: 24),
+                                Center(
+                                  child: Text(
+                                    _formatMessageHeaderDate(message.createdAt),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF8E717D).withOpacity(0.5),
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              if (showUnreadDivider) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: const Color(0xFFB5003F).withOpacity(0.2),
+                                        thickness: 1,
+                                        indent: 16,
+                                        endIndent: 8,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF0F3),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFFFD1DC),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'UNREAD MESSAGES',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFFB5003F),
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                        color: const Color(0xFFB5003F).withOpacity(0.2),
+                                        thickness: 1,
+                                        indent: 8,
+                                        endIndent: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              KeyedSubtree(
+                                key: ValueKey(message.id),
+                                child: _buildMessageBubble(message, isMe),
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -887,10 +1036,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     const SizedBox(width: 6),
                   ],
                   GestureDetector(
-                    onLongPress: isSending ? null : () => _showReactionSheet(message),
+                    onLongPress: isSending
+                        ? null
+                        : () {
+                            _messageFocusNode.unfocus();
+                            _showReactionSheet(message);
+                          },
                     onDoubleTap: isSending
                         ? null
                         : () async {
+                            _messageFocusNode.unfocus();
                             final String? myReaction = isMe ? message.senderReaction : message.receiverReaction;
                             final isRemoving = myReaction == '❤️';
                             
@@ -943,7 +1098,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           ),
                           child: Column(
-                            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (message.replyTo != null) ...[
@@ -952,7 +1107,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               ],
                               Text(
                                 message.content,
-                                textAlign: isMe ? TextAlign.end : TextAlign.start,
+                                textAlign: TextAlign.start,
                                 style: TextStyle(
                                   color: isMe ? Colors.white : const Color(0xFF2C1820),
                                   fontSize: 15,
@@ -970,7 +1125,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             right: isMe ? null : 12,
                             left: isMe ? 12 : null,
                             child: GestureDetector(
-                              onTap: () => _showReactionDetailsSheet(message),
+                              onTap: () {
+                                _messageFocusNode.unfocus();
+                                _showReactionDetailsSheet(message);
+                              },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
@@ -1057,11 +1215,15 @@ class _ChatScreenState extends State<ChatScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: SafeArea(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     focusNode: _messageFocusNode,
+                    minLines: 1,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
                     decoration: InputDecoration(
                       hintText: 'Type your heart...',
                       hintStyle: const TextStyle(color: Colors.black26),
@@ -1074,12 +1236,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
                     textCapitalization: TextCapitalization.sentences,
-                    onSubmitted: _isTextEmpty ? null : (_) => _handleSendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _isTextEmpty ? null : _handleSendMessage,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: ElevatedButton(
+                    onPressed: _isTextEmpty ? null : _handleSendMessage,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFB5003F),
                     foregroundColor: Colors.white,
@@ -1099,12 +1262,13 @@ class _ChatScreenState extends State<ChatScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-      ],
-    );
+      ),
+    ],
+  );
   }
 
   Widget _buildReplyPreviewBanner() {
@@ -1305,6 +1469,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _confirmUnsendMessage(Message message) {
+    _messageFocusNode.unfocus();
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1350,6 +1515,60 @@ class _ChatScreenState extends State<ChatScreen> {
       print('Error unsending message: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to unsend message.')),
+      );
+      if (mounted) {
+        setState(() {
+          _messages = originalMessages;
+        });
+      }
+    }
+  }
+
+  void _confirmClearChatHistory() {
+    _messageFocusNode.unfocus();
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFFFECEF),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Clear chat history?',
+            style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'This will clear your chat history on this device. Your partner will still be able to see it.',
+            style: TextStyle(color: Color(0xFF2C1820)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E717D))),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _clearChatHistory();
+              },
+              child: const Text('Clear', style: TextStyle(color: Color(0xFFDE1B5D), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _clearChatHistory() async {
+    final originalMessages = List<Message>.from(_messages);
+    setState(() {
+      _messages.clear();
+    });
+    try {
+      await ApiService.instance.clearChatHistory();
+    } catch (e) {
+      print('Error clearing chat history: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to clear chat history.')),
       );
       if (mounted) {
         setState(() {
@@ -1516,6 +1735,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showReactionDetailsSheet(Message message) {
+    _messageFocusNode.unfocus();
     final bool isMe = message.senderId == _currentUserId;
     final String? myReaction = isMe ? message.senderReaction : message.receiverReaction;
     final String? partnerReaction = isMe ? message.receiverReaction : message.senderReaction;
