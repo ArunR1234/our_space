@@ -236,6 +236,50 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateProfile(String name, String avatar) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/user/update'),
+      headers: _headers(),
+      body: jsonEncode({
+        'name': name,
+        'avatar': avatar,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update profile');
+    }
+  }
+
+  Future<void> updateFcmToken(String fcmToken) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/user/fcm-token'),
+      headers: _headers(),
+      body: jsonEncode({
+        'fcm_token': fcmToken,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update FCM Token');
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePreferences(bool showPreviews) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/user/preferences'),
+      headers: _headers(),
+      body: jsonEncode({
+        'show_previews': showPreviews,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update notification preferences');
+    }
+  }
+
   Future<void> deleteMessage(int messageId) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/chat-messages/$messageId'),

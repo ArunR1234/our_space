@@ -70,6 +70,31 @@ class ChatController extends Controller
 
         broadcast(new MessageSent($message))->toOthers();
 
+        // Send push notification to partner
+        $partner = $user->partner();
+        if ($partner && $partner->fcm_token) {
+            try {
+                $fcmService = resolve(\App\Services\FcmService::class);
+                
+                // Hide message details if the partner has show_previews disabled
+                $notificationTitle = ($partner->show_previews !== false) ? $user->name : 'Our Space';
+                $notificationBody = ($partner->show_previews !== false) ? $message->content : 'You have a new message';
+
+                $fcmService->sendNotification(
+                    $partner->fcm_token,
+                    $notificationTitle,
+                    $notificationBody,
+                    [
+                        'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                        'type' => 'chat',
+                        'relationship_id' => (string) $relationship->id,
+                    ]
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('FCM Send Exception: ' . $e->getMessage());
+            }
+        }
+
         return response()->json($message, 201);
     }
 

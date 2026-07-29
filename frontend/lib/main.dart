@@ -1,5 +1,13 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/pairing_screen.dart';
@@ -12,34 +20,109 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
+  
   // Initialize API service (loads saved authentication token)
   await ApiService.instance.init();
 
   runApp(const OurSpaceApp());
 }
 
-class OurSpaceApp extends StatelessWidget {
+class OurSpaceApp extends StatefulWidget {
   const OurSpaceApp({super.key});
+
+  static final ValueNotifier<String> themeNotifier = ValueNotifier<String>('crimson');
+
+  @override
+  State<OurSpaceApp> createState() => _OurSpaceAppState();
+}
+
+class _OurSpaceAppState extends State<OurSpaceApp> {
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedTheme();
+  }
+
+  Future<void> _loadSavedTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedTheme = prefs.getString('app_theme') ?? 'crimson';
+      OurSpaceApp.themeNotifier.value = savedTheme;
+    } catch (e) {
+      print('Error loading theme: $e');
+    }
+  }
+
+  ThemeData _getThemeDataForName(String name) {
+    Color seedColor;
+    Color backgroundColor;
+    switch (name) {
+      case 'purple':
+        seedColor = Color(0xFF6B2D5C);
+        backgroundColor = Color(0xFFF9F0F6);
+        break;
+      case 'blue':
+        seedColor = Color(0xFF1A365D);
+        backgroundColor = Color(0xFFF0F4F8);
+        break;
+      case 'green':
+        seedColor = Color(0xFF1B4332);
+        backgroundColor = Color(0xFFF0F5F2);
+        break;
+      case 'rose':
+        seedColor = Color(0xFFD85A7F);
+        backgroundColor = Color(0xFFFFF0F3);
+        break;
+      case 'amber':
+        seedColor = Color(0xFFB57C1E);
+        backgroundColor = Color(0xFFFCF8F0);
+        break;
+      case 'crimson':
+      default:
+        seedColor = Theme.of(context).colorScheme.primary;
+        backgroundColor = Theme.of(context).colorScheme.background;
+        break;
+    }
+
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        primary: seedColor,
+        background: backgroundColor,
+        surface: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      ),
+      textTheme: const TextTheme(
+        titleLarge: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820)),
+        bodyMedium: TextStyle(color: Color(0xFF2C1820)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Our Space',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB5003F), // Romantic crimson red
-          primary: const Color(0xFFB5003F),
-          background: const Color(0xFFFFF5F7), // Gentle white-pink background
-          surface: Colors.white,
-        ),
-        textTheme: const TextTheme(
-          titleLarge: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820)),
-          bodyMedium: TextStyle(color: Color(0xFF2C1820)),
-        ),
-      ),
-      home: const AuthGate(),
+    return ValueListenableBuilder<String>(
+      valueListenable: OurSpaceApp.themeNotifier,
+      builder: (context, currentTheme, _) {
+        return MaterialApp(
+          title: 'Our Space',
+          debugShowCheckedModeBanner: false,
+          theme: _getThemeDataForName(currentTheme),
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }
@@ -75,13 +158,24 @@ class _AuthGateState extends State<AuthGate> {
     try {
       final status = await ApiService.instance.getUserStatus();
       final relationship = status['relationship'];
+      final prefs = await SharedPreferences.getInstance();
+      final lockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+      final pin = prefs.getString('app_pin');
 
       if (mounted) {
         setState(() {
+          Widget destination;
           if (relationship == null || relationship['user_two_id'] == null) {
-            _targetScreen = const PairingScreen();
+            destination = const PairingScreen();
           } else {
-            _targetScreen = const MainNavigationShell();
+            destination = const MainNavigationShell();
+          }
+
+          // Wrap with PIN lock if enabled and PIN is set
+          if (lockEnabled && pin != null && pin.isNotEmpty) {
+            _targetScreen = PinLockScreen(correctPin: pin, destination: destination);
+          } else {
+            _targetScreen = destination;
           }
           _checkingAuth = false;
         });
@@ -101,16 +195,173 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_checkingAuth) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFF5F7),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB5003F)),
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
           ),
         ),
       );
     }
     return _targetScreen;
+  }
+}
+
+// ─────────────────── PIN LOCK SCREEN ───────────────────
+class PinLockScreen extends StatefulWidget {
+  final String correctPin;
+  final Widget destination;
+  const PinLockScreen({super.key, required this.correctPin, required this.destination});
+
+  @override
+  State<PinLockScreen> createState() => _PinLockScreenState();
+}
+
+class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProviderStateMixin {
+  final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  bool _hasError = false;
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_focusNodes.isNotEmpty) _focusNodes[0].requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers) c.dispose();
+    for (final f in _focusNodes) f.dispose();
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  void _onDigitEntered(String val, int index) {
+    if (val.length == 1 && index < 3) {
+      _focusNodes[index + 1].requestFocus();
+    }
+    // Auto-check when 4th digit entered
+    if (index == 3 && val.isNotEmpty) {
+      final entered = _controllers.map((c) => c.text).join();
+      if (entered.length == 4) _checkPin(entered);
+    }
+  }
+
+  void _checkPin(String entered) {
+    if (entered == widget.correctPin) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => widget.destination),
+      );
+    } else {
+      _shakeController.forward(from: 0);
+      setState(() => _hasError = true);
+      for (final c in _controllers) c.clear();
+      _focusNodes[0].requestFocus();
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _hasError = false);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Lock Icon
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    color: primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.lock_rounded, size: 40, color: primary),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Our Space',
+                  style: TextStyle(fontFamily: 'Georgia', fontSize: 28, fontWeight: FontWeight.bold, color: primary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Enter your 4-digit PIN to continue',
+                  style: TextStyle(color: const Color(0xFF8E717D), fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                // PIN boxes with shake animation
+                AnimatedBuilder(
+                  animation: _shakeAnimation,
+                  builder: (context, child) {
+                    final dx = _shakeController.isAnimating
+                        ? 12.0 * (0.5 - _shakeAnimation.value).abs() * (_shakeAnimation.value < 0.5 ? 1 : -1)
+                        : 0.0;
+                    return Transform.translate(offset: Offset(dx * 4, 0), child: child);
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: List.generate(4, (i) => _buildPinBox(i, primary)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Error message
+                AnimatedOpacity(
+                  opacity: _hasError ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    '❌ Incorrect PIN. Try again.',
+                    style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinBox(int index, Color primary) {
+    return Container(
+      width: 56, height: 64,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: _hasError ? Colors.red.shade300 : primary.withOpacity(0.3),
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: primary.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        keyboardType: TextInputType.number,
+        maxLength: 1,
+        obscureText: true,
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: primary),
+        decoration: const InputDecoration(counterText: '', border: InputBorder.none),
+        onChanged: (val) => _onDigitEntered(val, index),
+      ),
+    );
   }
 }
 
@@ -128,11 +379,84 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   Timer? _globalHeartbeatTimer;
   int? _globalRelationshipId;
   int? _globalUserId;
+  final FlutterLocalNotificationsPlugin _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeLocalNotifications();
     _setupPendingPartnerListener();
+    _requestNotificationPermission();
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+
+    await _localNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse details) {
+        if (mounted) {
+          setState(() {
+            _currentIndex = 1; // Switch to Chat tab
+          });
+        }
+      },
+    );
+
+    // Listen to foreground FCM push notifications and show local notification banners
+    try {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        final notification = message.notification;
+        if (notification != null && _currentIndex != 1) {
+          _showLocalNotification(
+            notification.title ?? 'New Message',
+            notification.body ?? '',
+          );
+        }
+      });
+    } catch (e) {
+      print('FCM foreground listener ignored: $e');
+    }
+  }
+
+  Future<void> _showLocalNotification(String title, String body) async {
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'relationship_chats',
+      'Relationship Chats',
+      channelDescription: 'Notifications for new chat messages between partners',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
+      playSound: true,
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+    );
+
+    await _localNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+    );
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    try {
+      final status = await Permission.notification.status;
+      if (status.isDenied) {
+        await Permission.notification.request();
+      }
+    } catch (e) {
+      print('Error requesting notification permission: $e');
+    }
   }
 
   @override
@@ -140,6 +464,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     _globalHeartbeatTimer?.cancel();
     _globalHeartbeatTimer = null;
     WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
+    WebSocketService.instance.removeListener('App\\Events\\MessageSent', _onGlobalMessageSentReceived);
     super.dispose();
   }
 
@@ -152,6 +477,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         
         // Always connect to the WebSocket service to support real-time features on all screens
         await WebSocketService.instance.connect(relationshipId);
+
+        // Listen for new messages globally to trigger notifications
+        WebSocketService.instance.addListener('App\\Events\\MessageSent', _onGlobalMessageSentReceived);
+
+        // Setup Firebase push token registration
+        _setupFcmTokenRegistration();
 
         // Broadcast online status immediately when user enters the app
         _globalRelationshipId = relationshipId;
@@ -209,6 +540,40 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
   }
 
+  Future<void> _setupFcmTokenRegistration() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final String? token = await messaging.getToken();
+      if (token != null) {
+        print('FCM Token: $token');
+        await ApiService.instance.updateFcmToken(token);
+      }
+
+      messaging.onTokenRefresh.listen((newToken) async {
+        try {
+          await ApiService.instance.updateFcmToken(newToken);
+        } catch (e) {
+          print('Error updating refreshed FCM token: $e');
+        }
+      });
+    } catch (e) {
+      print('FCM token setup ignored (probably missing Firebase config): $e');
+    }
+  }
+
+  void _onGlobalMessageSentReceived(Map<String, dynamic> data) {
+    if (_globalUserId == null) return;
+    final int senderId = data['sender_id'] ?? 0;
+    
+    // Only notify if the message is from our partner and we are not currently on the chat tab
+    if (senderId != _globalUserId && _currentIndex != 1) {
+      final String senderName = data['sender']?['name'] ?? 'Your Partner';
+      final String content = data['content'] ?? 'Sent a message';
+      
+      _showLocalNotification(senderName, content);
+    }
+  }
+
   void _onPartnerConnected(Map<String, dynamic> data) async {
     if (!mounted || _hasShownCongrats) return;
     _hasShownCongrats = true;
@@ -226,9 +591,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 16,
-          backgroundColor: const Color(0xFFFFF5F7),
+          backgroundColor: Theme.of(context).colorScheme.background,
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -242,29 +607,29 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFECEF),
+                          color: Color(0xFFFFECEF),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFDE1B5D).withOpacity(0.2),
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                               blurRadius: 16,
                               spreadRadius: 2,
                             ),
                           ],
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.favorite_rounded,
                         size: 40,
-                        color: Color(0xFFDE1B5D),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 
                 // Title
-                const Text(
+                Text(
                   'Hearts Connected!',
                   style: TextStyle(
                     fontFamily: 'Georgia',
@@ -274,27 +639,27 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 
                 // Content
                 Text(
                   '${data['partner']['name']} (${data['partner']['email']}) has successfully registered and connected with you!\n\nYour shared sanctuary is now fully active.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFF8E717D),
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 
                 // Gradient Confirm Button
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [
-                        Color(0xFFDE1B5D),
-                        Color(0xFF8A003D),
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.primary,
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
@@ -302,7 +667,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFB5003F).withOpacity(0.3),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -323,12 +688,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Awesome!',
                       style: TextStyle(
                         fontSize: 16,
@@ -351,7 +716,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     const ChatScreen(),
     const CallPlaceholderScreen(),
     const ProfileScreen(),
-    const CustomizationPlaceholderScreen(),
+    const SettingsScreen(),
   ];
 
   @override
@@ -368,12 +733,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 color: Colors.white,
                 border: Border(
                   top: BorderSide(
-                    color: const Color(0xFFB5003F).withOpacity(0.08),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                     width: 1,
                   ),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 8),
               child: SafeArea(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -382,7 +747,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     _buildNavItem(1, Icons.chat_bubble_rounded),
                     _buildNavItem(2, Icons.phone_rounded),
                     _buildNavItem(3, Icons.person_rounded),
-                    _buildNavItem(4, Icons.palette_rounded),
+                    _buildNavItem(4, Icons.settings_rounded),
                   ],
                 ),
               ),
@@ -400,14 +765,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFECEF) : Colors.transparent,
+          color: isSelected ? Color(0xFFFFECEF) : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
-          color: isSelected ? const Color(0xFFB5003F) : const Color(0xFF8E717D),
+          color: isSelected ? Theme.of(context).colorScheme.primary : Color(0xFF8E717D),
           size: 24,
         ),
       ),
@@ -422,27 +787,27 @@ class CallPlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF5F7),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Voice Calls', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF8A003D), fontWeight: FontWeight.bold)),
+        title: Text('Voice Calls', style: TextStyle(fontFamily: 'Georgia', color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.phone_rounded, size: 64, color: const Color(0xFFB5003F).withOpacity(0.5)),
-              const SizedBox(height: 16),
-              const Text(
+              Icon(Icons.phone_rounded, size: 64, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+              SizedBox(height: 16),
+              Text(
                 'Coming Soon',
                 style: TextStyle(fontFamily: 'Georgia', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C1820)),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'Direct voice calls to keep you connected with your love at all times.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Color(0xFF8E717D), fontSize: 14),
@@ -455,42 +820,530 @@ class CallPlaceholderScreen extends StatelessWidget {
   }
 }
 
-// Minimal placeholder screen for Customization Tab
-class CustomizationPlaceholderScreen extends StatelessWidget {
-  const CustomizationPlaceholderScreen({super.key});
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _notificationsEnabled = true;
+  bool _chatSoundsEnabled = true;
+  bool _showPreviews = true;
+  bool _appLockEnabled = false;
+  String? _appPin;
+  Map<String, dynamic>? _user;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _chatSoundsEnabled = prefs.getBool('play_chat_sounds') ?? true;
+        _appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
+        _appPin = prefs.getString('app_pin');
+      });
+    }
+  }
+
+  Future<void> _toggleChatSounds(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('play_chat_sounds', val);
+    if (mounted) {
+      setState(() {
+        _chatSoundsEnabled = val;
+      });
+    }
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final status = await ApiService.instance.getUserStatus();
+      if (mounted) {
+        setState(() {
+          _user = status['user'];
+          _showPreviews = _user?['show_previews'] ?? true;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _toggleShowPreviews(bool val) async {
+    setState(() {
+      _showPreviews = val;
+    });
+    try {
+      await ApiService.instance.updatePreferences(val);
+    } catch (e) {
+      print('Error saving preferences: $e');
+    }
+  }
+
+  Future<void> _showAppPasswordDialog({bool isChanging = false}) async {
+    final primary = Theme.of(context).colorScheme.primary;
+    final pinControllers = List.generate(4, (_) => TextEditingController());
+    final confirmControllers = List.generate(4, (_) => TextEditingController());
+    final pinFocusNodes = List.generate(4, (_) => FocusNode());
+    final confirmFocusNodes = List.generate(4, (_) => FocusNode());
+    String enteredPin = '';
+    String confirmedPin = '';
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          void onPinChanged(String val, int index, List<TextEditingController> ctrls, List<FocusNode> nodes, bool isConfirm) {
+            if (val.length == 1) {
+              if (index < 3) nodes[index + 1].requestFocus();
+              if (!isConfirm) enteredPin = ctrls.map((c) => c.text).join();
+              if (isConfirm) confirmedPin = ctrls.map((c) => c.text).join();
+            }
+          }
+
+          Widget buildPinBox(int index, List<TextEditingController> ctrls, List<FocusNode> nodes, bool isConfirm) {
+            return Container(
+              width: 48,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: primary.withOpacity(0.3), width: 1.5),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: primary.withOpacity(0.05), blurRadius: 8)],
+              ),
+              child: TextField(
+                controller: ctrls[index],
+                focusNode: nodes[index],
+                keyboardType: TextInputType.number,
+                maxLength: 1,
+                obscureText: true,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: primary),
+                decoration: const InputDecoration(counterText: '', border: InputBorder.none),
+                onChanged: (val) => onPinChanged(val, index, ctrls, nodes, isConfirm),
+              ),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: Theme.of(context).colorScheme.background,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: Text(
+              isChanging ? 'Change App Password' : 'Set App Password',
+              style: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.bold, color: primary),
+              textAlign: TextAlign.center,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Enter a 4-digit PIN to lock this app.',
+                    style: TextStyle(color: const Color(0xFF8E717D), fontSize: 13),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                Text('New PIN', style: TextStyle(fontWeight: FontWeight.w600, color: primary, fontSize: 13)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(4, (i) => buildPinBox(i, pinControllers, pinFocusNodes, false)),
+                ),
+                const SizedBox(height: 16),
+                Text('Confirm PIN', style: TextStyle(fontWeight: FontWeight.w600, color: primary, fontSize: 13)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(4, (i) => buildPinBox(i, confirmControllers, confirmFocusNodes, true)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Cancel', style: TextStyle(color: const Color(0xFF8E717D))),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () async {
+                  enteredPin = pinControllers.map((c) => c.text).join();
+                  confirmedPin = confirmControllers.map((c) => c.text).join();
+                  if (enteredPin.length == 4 && enteredPin == confirmedPin) {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('app_pin', enteredPin);
+                    await prefs.setBool('app_lock_enabled', true);
+                    if (mounted) setState(() { _appLockEnabled = true; _appPin = enteredPin; });
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('App password set! 🔒'), backgroundColor: primary),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('PINs do not match or incomplete.')),
+                    );
+                  }
+                },
+                child: const Text('Save PIN'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    for (final c in [...pinControllers, ...confirmControllers]) c.dispose();
+    for (final f in [...pinFocusNodes, ...confirmFocusNodes]) f.dispose();
+  }
+
+  Future<void> _toggleAppLock(bool val) async {
+    if (val) {
+      await _showAppPasswordDialog();
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('app_lock_enabled', false);
+      await prefs.remove('app_pin');
+      if (mounted) setState(() { _appLockEnabled = false; _appPin = null; });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await ApiService.instance.logout();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+        (route) => false,
+      );
+    }
+  }
+
+  Widget _buildThemeCircle(String themeName, Color color) {
+    final isSelected = OurSpaceApp.themeNotifier.value == themeName;
+    return GestureDetector(
+      onTap: () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('app_theme', themeName);
+        OurSpaceApp.themeNotifier.value = themeName;
+        setState(() {});
+      },
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? Colors.black87 : Colors.transparent,
+            width: 2.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: isSelected
+            ? Icon(Icons.check_rounded, color: Colors.white, size: 18)
+            : null,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF5F7),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Themes', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF8A003D), fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.palette_rounded, size: 64, color: const Color(0xFFB5003F).withOpacity(0.5)),
-              const SizedBox(height: 16),
-              const Text(
-                'Theme Customization',
-                style: TextStyle(fontFamily: 'Georgia', fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C1820)),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Personalize your chat background, bubble colors, and wallpapers to reflect your unique story.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF8E717D), fontSize: 14),
-              ),
-            ],
+        title: Text(
+          'Settings',
+          style: TextStyle(
+            fontFamily: 'Georgia',
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        centerTitle: true,
       ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+              ),
+            )
+          : ListView(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              children: [
+                // Profile summary card
+                Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Color(0xFFFFF0F3),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            _user?['avatar'] ?? '🐱',
+                            style: TextStyle(fontSize: 32),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _user?['name'] ?? 'Guest User',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2C1820),
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              _user?['email'] ?? '',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF8E717D),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 24),
+
+                // Preferences section
+                Text(
+                  'PREFERENCES',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Notifications switch
+                      SwitchListTile(
+                        value: _notificationsEnabled,
+                        onChanged: (val) {
+                          setState(() {
+                            _notificationsEnabled = val;
+                          });
+                        },
+                        title: Text('Push Notifications'),
+                        subtitle: Text('Receive notifications for new messages'),
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        secondary: Icon(
+                          Icons.notifications_active_rounded,
+                          color: Color(0xFF8E717D),
+                        ),
+                      ),
+                      Divider(height: 1),
+                      // Show Previews Switch
+                      SwitchListTile(
+                        value: _showPreviews,
+                        onChanged: _toggleShowPreviews,
+                        title: Text('Show Message Previews'),
+                        subtitle: Text('Show message content in notification banners'),
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        secondary: Icon(
+                          Icons.visibility_rounded,
+                          color: Color(0xFF8E717D),
+                        ),
+                      ),
+                      Divider(height: 1),
+                      // Message Sounds Switch
+                      SwitchListTile(
+                        value: _chatSoundsEnabled,
+                        onChanged: _toggleChatSounds,
+                        title: Text('Message Sounds'),
+                        subtitle: Text('Play sound on sending and receiving messages'),
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        secondary: Icon(
+                          Icons.music_note_rounded,
+                          color: Color(0xFF8E717D),
+                        ),
+                      ),
+                      Divider(height: 1),
+                      // App Password
+                      SwitchListTile(
+                        value: _appLockEnabled,
+                        onChanged: _toggleAppLock,
+                        title: Text('App Password'),
+                        subtitle: Text(_appLockEnabled ? 'PIN lock is active • tap to change' : 'Lock app with a 4-digit PIN'),
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        secondary: Icon(
+                          Icons.lock_rounded,
+                          color: const Color(0xFF8E717D),
+                        ),
+                      ),
+                      // Change PIN shortcut when enabled
+                      if (_appLockEnabled) ...[
+                        Divider(height: 1),
+                        ListTile(
+                          onTap: () => _showAppPasswordDialog(isChanging: true),
+                          leading: Icon(Icons.edit_rounded, color: const Color(0xFF8E717D)),
+                          title: Text('Change App Password'),
+                          subtitle: Text('Update your 4-digit PIN'),
+                          trailing: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: const Color(0xFF8E717D)),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 24),
+
+                // Theme selection section
+                Text(
+                  'THEME COLOR',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildThemeCircle('crimson', Theme.of(context).colorScheme.primary),
+                      _buildThemeCircle('rose', Color(0xFFD85A7F)),
+                      _buildThemeCircle('purple', Color(0xFF6B2D5C)),
+                      _buildThemeCircle('blue', Color(0xFF1A365D)),
+                      _buildThemeCircle('green', Color(0xFF1B4332)),
+                      _buildThemeCircle('amber', Color(0xFFB57C1E)),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 30),
+
+                // Account section
+                Text(
+                  'ACCOUNT CONTROLS',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                SizedBox(height: 10),
+                // Logout Button Card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ListTile(
+                    onTap: _handleLogout,
+                    leading: Icon(
+                      Icons.logout_rounded,
+                      color: Colors.redAccent,
+                    ),
+                    title: Text(
+                      'Log Out',
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text('Sign out from this device'),
+                  ),
+                ),
+                SizedBox(height: 40),
+
+                // Version display
+                Center(
+                  child: Text(
+                    'Our Space v1.0.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8E717D),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -506,12 +1359,33 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   Map<String, dynamic>? _partner;
+  String? _anniversaryDate;
   bool _isLoading = true;
+
+  final TextEditingController _nameController = TextEditingController();
+  String _selectedAvatar = '💖';
+  bool _isSaving = false;
+  final List<String> _avatars = [
+    // Hearts
+    '💖', '❤️', '💜', '💙', '💚', '💝', '💘', '💕',
+    // Flowers
+    '🌸', '🌹', '🌷', '🌺',
+    // Chocolates & Sweets
+    '🍫', '🍩', '🧁', '🍭',
+    // Animals (No Yellow/Orange/Brown faces)
+    '🐰', '🐼', '🐨', '🐙', '🦄', '🐸', '🐳', '🦋'
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProfileData() async {
@@ -521,6 +1395,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _user = status['user'];
           _partner = status['partner'];
+          _anniversaryDate = status['relationship']?['anniversary_date'];
+          _nameController.text = _user?['name'] ?? '';
+          _selectedAvatar = _user?['avatar'] ?? '💖';
           _isLoading = false;
         });
       }
@@ -541,52 +1418,417 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  int _calculateDaysTogether(String? anniversaryStr) {
+    if (anniversaryStr == null) return 0;
+    try {
+      final anniversary = DateTime.parse(anniversaryStr);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final annivDate = DateTime(anniversary.year, anniversary.month, anniversary.day);
+      return today.difference(annivDate).inDays;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  String _formatAnniversaryDate(String? dateStr) {
+    if (dateStr == null) return 'Not set yet';
+    try {
+      final date = DateTime.parse(dateStr);
+      return DateFormat('MMMM d, y').format(date);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  Future<void> _selectAnniversaryDate() async {
+    final initialDate = _anniversaryDate != null
+        ? DateTime.tryParse(_anniversaryDate!) ?? DateTime.now()
+        : DateTime.now();
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF2C1820),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final formattedDate = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        await ApiService.instance.updateAnniversaryDate(formattedDate);
+        setState(() {
+          _anniversaryDate = formattedDate;
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Anniversary date updated!')),
+        );
+      } catch (e) {
+        print('Error saving anniversary: $e');
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update anniversary date.')),
+        );
+      }
+    }
+  }
+
+  void _showAvatarPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Choose Your Avatar',
+                  style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  height: 280,
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: _avatars.length,
+                    itemBuilder: (context, index) {
+                      final avatar = _avatars[index];
+                      final isSelected = _selectedAvatar == avatar;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _updateAvatar(avatar);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? Color(0xFFFFECEF) : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            avatar,
+                            style: TextStyle(fontSize: 32),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updateAvatar(String avatar) async {
+    setState(() {
+      _selectedAvatar = avatar;
+      _isLoading = true;
+    });
+
+    try {
+      final name = _user?['name'] ?? '';
+      final res = await ApiService.instance.updateProfile(name, avatar);
+      if (mounted) {
+        setState(() {
+          _user = res['user'];
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Avatar updated successfully!')),
+        );
+      }
+    } catch (e) {
+      print('Error updating avatar: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update avatar')),
+        );
+      }
+    }
+  }
+
+  void _showRenameDialog() {
+    _nameController.text = _user?['name'] ?? '';
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFFFFECEF),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Edit Display Name',
+            style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold),
+          ),
+          content: TextField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              hintText: 'Enter your name...',
+              hintStyle: TextStyle(color: Color(0xFF8E717D).withOpacity(0.5)),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+              ),
+            ),
+            style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: TextStyle(color: Color(0xFF8E717D))),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _saveProfile();
+              },
+              child: Text('Save', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _saveProfile() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Name cannot be empty')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final res = await ApiService.instance.updateProfile(name, _selectedAvatar);
+      if (mounted) {
+        setState(() {
+          _user = res['user'];
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Name updated successfully!')),
+        );
+      }
+    } catch (e) {
+      print('Error saving profile: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update name')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF5F7),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Our Account', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF8A003D), fontWeight: FontWeight.bold)),
+        title: Text('Our Account', style: TextStyle(fontFamily: 'Georgia', color: primary, fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_rounded, color: primary),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB5003F))))
+          ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)))
           : Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   // User details
                   _buildProfileCard(
                     title: 'My Profile',
                     name: _user?['name'] ?? 'Me',
                     email: _user?['email'] ?? '',
+                    avatar: _user?['avatar'] ?? '💖',
                     icon: Icons.person_rounded,
+                    isMe: true,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   // Partner details
                   _buildProfileCard(
                     title: 'My Partner',
                     name: _partner?['name'] ?? 'Waiting...',
                     email: _partner?['email'] ?? 'Not paired yet',
+                    avatar: _partner?['avatar'],
                     icon: Icons.favorite_rounded,
-                    accentColor: const Color(0xFFB5003F),
+                    accentColor: Theme.of(context).colorScheme.primary,
+                    isMe: false,
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.06), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.favorite_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 36,
+                        ),
+                        SizedBox(height: 10),
+                        Text(
+                          '${_calculateDaysTogether(_anniversaryDate)} Days',
+                          style: TextStyle(
+                            fontFamily: 'Georgia',
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2C1820),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'OF TOGETHERNESS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF8E717D),
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        SizedBox(height: 14),
+                        Divider(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), thickness: 1),
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ANNIVERSARY DATE',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF8E717D),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    _formatAnniversaryDate(_anniversaryDate),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF2C1820),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _selectAnniversaryDate,
+                              icon: Icon(Icons.edit_calendar_rounded, size: 14),
+                              label: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                backgroundColor: Color(0xFFFFECEF),
+                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   const Spacer(),
                   ElevatedButton(
                     onPressed: _handleLogout,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFB5003F),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                 ],
               ),
             ),
@@ -597,15 +1839,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required String name,
     required String email,
-    required IconData icon,
+    IconData? icon,
+    String? avatar,
     Color accentColor = const Color(0xFF8E717D),
+    bool isMe = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFB5003F).withOpacity(0.06), width: 1.5),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.06), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -615,29 +1859,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: const Color(0xFFFFECEF),
-            child: Icon(icon, color: accentColor, size: 28),
-          ),
-          const SizedBox(width: 16),
+          isMe
+              ? GestureDetector(
+                  onTap: _showAvatarPicker,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Color(0xFFFFECEF),
+                        child: avatar != null && avatar.isNotEmpty
+                            ? Text(avatar, style: TextStyle(fontSize: 28))
+                            : Icon(icon, color: accentColor, size: 28),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.camera_alt_rounded,
+                            color: Colors.white,
+                            size: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Color(0xFFFFECEF),
+                  child: avatar != null && avatar.isNotEmpty
+                      ? Text(avatar, style: TextStyle(fontSize: 28))
+                      : Icon(icon, color: accentColor, size: 28),
+                ),
+          SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E717D), letterSpacing: 1.0),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E717D), letterSpacing: 1.0),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  name,
-                  style: const TextStyle(fontFamily: 'Georgia', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C1820)),
-                ),
-                const SizedBox(height: 2),
+                SizedBox(height: 4),
+                isMe
+                    ? GestureDetector(
+                        onTap: _showRenameDialog,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                name,
+                                style: TextStyle(
+                                  fontFamily: 'Georgia',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2C1820),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(
+                              Icons.edit_rounded,
+                              size: 14,
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Text(
+                        name,
+                        style: TextStyle(fontFamily: 'Georgia', fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C1820)),
+                      ),
+                SizedBox(height: 2),
                 Text(
                   email,
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF8E717D)),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF8E717D)),
                 ),
               ],
             ),

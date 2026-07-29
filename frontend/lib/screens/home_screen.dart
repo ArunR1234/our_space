@@ -176,14 +176,14 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFB5003F),
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
               onPrimary: Colors.white,
               onSurface: Color(0xFF2C1820),
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFB5003F),
+                foregroundColor: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
@@ -200,14 +200,14 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
-                primary: Color(0xFFB5003F),
+              colorScheme: ColorScheme.light(
+                primary: Theme.of(context).colorScheme.primary,
                 onPrimary: Colors.white,
                 onSurface: Color(0xFF2C1820),
               ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFB5003F),
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -271,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
             content: Text(status == 'accepted' 
                 ? 'Meet-up proposal accepted! ❤️' 
                 : 'Meet-up proposal declined.'),
-            backgroundColor: status == 'accepted' ? const Color(0xFFB5003F) : const Color(0xFF8E717D),
+            backgroundColor: status == 'accepted' ? Theme.of(context).colorScheme.primary : Color(0xFF8E717D),
           ),
         );
       }
@@ -279,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Error responding to date plan: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to respond. Please try again.')),
+          SnackBar(content: Text('Failed to respond. Please try again.')),
         );
       }
     } finally {
@@ -292,29 +292,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatusBadge() {
-    if (_nextDate == null) return const SizedBox.shrink();
+    if (_nextDate == null) return SizedBox.shrink();
     
     final status = _nextDate!['status'] ?? 'pending';
     final isCreator = _nextDate!['creator_id'] == _currentUserId;
 
     if (status == 'accepted') {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFECEF),
+          color: Color(0xFFFFECEF),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.favorite_rounded, size: 10, color: Color(0xFFB5003F)),
+            Icon(Icons.favorite_rounded, size: 10, color: Theme.of(context).colorScheme.primary),
             SizedBox(width: 4),
             Text(
               'Confirmed',
               style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFB5003F),
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -322,9 +322,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else if (status == 'pending') {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: isCreator ? const Color(0xFFFFF3CD) : const Color(0xFFE2E3E5),
+          color: isCreator ? Color(0xFFFFF3CD) : Color(0xFFE2E3E5),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -332,13 +332,13 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: isCreator ? const Color(0xFF856404) : const Color(0xFF383D41),
+            color: isCreator ? Color(0xFF856404) : Color(0xFF383D41),
           ),
         ),
       );
     }
     
-    return const SizedBox.shrink();
+    return SizedBox.shrink();
   }
 
   Future<void> _cancelDatePlan() async {
@@ -349,23 +349,23 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: const Color(0xFFFFF5F7),
-          title: const Text('Cancel Meet-up', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold)),
-          content: const Text('Are you sure you want to cancel this proposed meet-up?', style: TextStyle(color: Color(0xFF8E717D))),
+          backgroundColor: Theme.of(context).colorScheme.background,
+          title: Text('Cancel Meet-up', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold)),
+          content: Text('Are you sure you want to cancel this proposed meet-up?', style: TextStyle(color: Color(0xFF8E717D))),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('No, keep it', style: TextStyle(color: Color(0xFF8E717D))),
+              child: Text('No, keep it', style: TextStyle(color: Color(0xFF8E717D))),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB5003F),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
-              child: const Text('Yes, cancel it', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: Text('Yes, cancel it', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -383,14 +383,14 @@ class _HomeScreenState extends State<HomeScreen> {
         await _loadDashboardData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Meet-up proposal cancelled.')),
+            SnackBar(content: Text('Meet-up proposal cancelled.')),
           );
         }
       } catch (e) {
         print('Error deleting date plan: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to cancel meet-up. Please try again.')),
+            SnackBar(content: Text('Failed to cancel meet-up. Please try again.')),
           );
         }
       } finally {
@@ -422,8 +422,8 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (BuildContext context) {
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            backgroundColor: const Color(0xFFFFF5F7),
-            title: const Text(
+            backgroundColor: Theme.of(context).colorScheme.background,
+            title: Text(
               'Active Meet-up Exists',
               style: TextStyle(
                 fontFamily: 'Georgia',
@@ -431,16 +431,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            content: const Text(
+            content: Text(
               'You already created a plan. You can only edit or cancel your current plan.',
               style: TextStyle(color: Color(0xFF8E717D)),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'OK',
-                  style: TextStyle(color: Color(0xFFB5003F), fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -466,9 +466,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: const Color(0xFFFFF5F7),
+          backgroundColor: Theme.of(context).colorScheme.background,
           child: Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             constraints: const BoxConstraints(maxHeight: 450),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -476,9 +476,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.history_rounded, color: Color(0xFFB5003F), size: 20),
+                        Icon(Icons.history_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Our Meet-up History',
@@ -492,25 +492,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF8E717D), size: 20),
+                      icon: Icon(Icons.close_rounded, color: Color(0xFF8E717D), size: 20),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Expanded(
                   child: FutureBuilder<List<dynamic>>(
                     future: ApiService.instance.getDatePlans(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
+                        return Center(
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB5003F)),
+                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
                           ),
                         );
                       }
                       if (snapshot.hasError) {
-                        return const Center(
+                        return Center(
                           child: Text(
                             'Failed to load history.',
                             style: TextStyle(color: Color(0xFF8E717D)),
@@ -519,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
                       final plans = snapshot.data ?? [];
                       if (plans.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Text(
                             'No dates planned yet.',
                             style: TextStyle(
@@ -539,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       return ListView.separated(
                         itemCount: sortedPlans.length,
-                        separatorBuilder: (context, index) => const Divider(color: Color(0xFFFFECEF)),
+                        separatorBuilder: (context, index) => Divider(color: Color(0xFFFFECEF)),
                         itemBuilder: (context, index) {
                           final plan = sortedPlans[index];
                           final dateStr = DateFormat('MMM d, y • h:mm a')
@@ -548,21 +548,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           final isPast = DateTime.parse(plan['date']).toLocal().isBefore(DateTime.now());
 
                           IconData statusIcon = Icons.help_outline_rounded;
-                          Color statusColor = const Color(0xFF8E717D);
+                          Color statusColor = Color(0xFF8E717D);
                           String statusText = 'Pending';
 
                           if (status == 'accepted') {
                             statusIcon = isPast ? Icons.check_circle_rounded : Icons.favorite_rounded;
-                            statusColor = const Color(0xFFB5003F);
+                            statusColor = Theme.of(context).colorScheme.primary;
                             statusText = isPast ? 'Met! ❤️' : 'Confirmed';
                           } else if (status == 'declined') {
                             statusIcon = Icons.cancel_rounded;
-                            statusColor = const Color(0xFF8E717D);
+                            statusColor = Color(0xFF8E717D);
                             statusText = 'Declined';
                           }
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            padding: EdgeInsets.symmetric(vertical: 4),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -572,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Expanded(
                                       child: Text(
                                         plan['title'],
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
                                           color: Color(0xFF2C1820),
@@ -580,7 +580,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: statusColor.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(6),
@@ -589,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(statusIcon, size: 10, color: statusColor),
-                                          const SizedBox(width: 4),
+                                          SizedBox(width: 4),
                                           Text(
                                             statusText,
                                             style: TextStyle(
@@ -603,27 +603,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    const Icon(Icons.access_time_rounded, size: 11, color: Color(0xFF8E717D)),
-                                    const SizedBox(width: 4),
+                                    Icon(Icons.access_time_rounded, size: 11, color: Color(0xFF8E717D)),
+                                    SizedBox(width: 4),
                                     Text(
                                       dateStr,
-                                      style: const TextStyle(fontSize: 11, color: Color(0xFF8E717D)),
+                                      style: TextStyle(fontSize: 11, color: Color(0xFF8E717D)),
                                     ),
                                   ],
                                 ),
                                 if (plan['location'] != null && plan['location'].toString().trim().isNotEmpty) ...[
-                                  const SizedBox(height: 2),
+                                  SizedBox(height: 2),
                                   Row(
                                     children: [
-                                      const Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF8E717D)),
-                                      const SizedBox(width: 4),
+                                      Icon(Icons.location_on_outlined, size: 11, color: Color(0xFF8E717D)),
+                                      SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
                                           plan['location'],
-                                          style: const TextStyle(fontSize: 11, color: Color(0xFF8E717D)),
+                                          style: TextStyle(fontSize: 11, color: Color(0xFF8E717D)),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -650,11 +650,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFF5F7),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFB5003F)),
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
           ),
         ),
       );
@@ -662,32 +662,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: const Color(0xFFFFF5F7),
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const Icon(
+        leading: Icon(
           Icons.favorite_border_rounded,
-          color: Color(0xFFB5003F),
+          color: Theme.of(context).colorScheme.primary,
         ),
-        title: const Text(
+        title: Text(
           'Our Space',
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF8A003D),
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Color(0xFFB5003F)),
+            icon: Icon(Icons.settings_outlined, color: Theme.of(context).colorScheme.primary),
             onPressed: () {
               showModalBottomSheet(
                 context: context,
-                backgroundColor: const Color(0xFFFFECEF),
-                shape: const RoundedRectangleBorder(
+                backgroundColor: Color(0xFFFFECEF),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 builder: (context) => SafeArea(
@@ -695,8 +695,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.logout_rounded, color: Color(0xFFB5003F)),
-                        title: const Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
+                        leading: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.primary),
+                        title: Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
                         onTap: () {
                           Navigator.pop(context);
                           _handleLogout();
@@ -712,11 +712,11 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'WELCOME BACK',
                 style: TextStyle(
                   fontSize: 10,
@@ -726,8 +726,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
-              const Text(
+              SizedBox(height: 4),
+              Text(
                 'Hello, My Love',
                 style: TextStyle(
                   fontFamily: 'Georgia',
@@ -738,15 +738,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.center,
               ),
               
-              const Spacer(flex: 1),
+              Spacer(flex: 1),
 
               // Main Live Counter Card
               Container(
-                padding: const EdgeInsets.all(22.0),
+                padding: EdgeInsets.all(22.0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFFB5003F).withOpacity(0.08),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                     width: 1.5,
                   ),
                   gradient: LinearGradient(
@@ -754,12 +754,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     end: Alignment.bottomRight,
                     colors: [
                       Colors.white,
-                      const Color(0xFFFFF0F3).withOpacity(0.6),
+                      Color(0xFFFFF0F3).withOpacity(0.6),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFB5003F).withOpacity(0.03),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
@@ -769,26 +769,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFECEF),
+                        color: Color(0xFFFFECEF),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFB5003F).withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                             blurRadius: 12,
                             spreadRadius: 1,
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.favorite_rounded,
                         size: 32,
-                        color: Color(0xFFB5003F),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    const Text(
+                    SizedBox(height: 14),
+                    Text(
                       'DAYS TOGETHER',
                       style: TextStyle(
                         fontSize: 10,
@@ -797,58 +797,58 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Color(0xFF8E717D),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       '$_daysTogetherLive',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF8A003D),
+                        color: Theme.of(context).colorScheme.primary,
                         height: 1.1,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFECEF).withOpacity(0.5),
+                        color: Color(0xFFFFECEF).withOpacity(0.5),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         _timeElapsedStr,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Courier',
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFB5003F),
+                          color: Theme.of(context).colorScheme.primary,
                           letterSpacing: 1.0,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     GestureDetector(
                       onTap: _selectAnniversaryDate,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFFB5003F).withOpacity(0.2)),
+                          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.edit_calendar_rounded, size: 14, color: Color(0xFFB5003F)),
-                            const SizedBox(width: 6),
+                            Icon(Icons.edit_calendar_rounded, size: 14, color: Theme.of(context).colorScheme.primary),
+                            SizedBox(width: 6),
                             Text(
                               _anniversaryDateStr != null
                                   ? DateFormat('MMM d, y • h:mm a').format(DateTime.parse(_anniversaryDateStr!).toLocal())
                                   : 'Select Proposal Date',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFFB5003F),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ],
@@ -859,16 +859,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const Spacer(flex: 1),
+              Spacer(flex: 1),
 
               // Next Date Plan Banner
               Container(
-                padding: const EdgeInsets.all(18.0),
+                padding: EdgeInsets.all(18.0),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFFB5003F).withOpacity(0.06),
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
                     width: 1.5,
                   ),
                   boxShadow: [
@@ -886,18 +886,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
                             color: Color(0xFFFFECEF),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.calendar_month_rounded,
                             size: 22,
-                            color: Color(0xFFB5003F),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,7 +907,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Text(
+                                      Text(
                                         'NEXT MEET-UP',
                                         style: TextStyle(
                                           fontSize: 9,
@@ -916,18 +916,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                           color: Color(0xFF8E717D),
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
+                                      SizedBox(width: 6),
                                       InkWell(
                                         onTap: _showDatePlanHistory,
                                         borderRadius: BorderRadius.circular(12),
-                                        child: const Padding(
+                                        child: Padding(
                                           padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           child: Row(
                                             children: [
                                               Icon(
                                                 Icons.history_rounded,
                                                 size: 11,
-                                                color: Color(0xFFB5003F),
+                                                color: Theme.of(context).colorScheme.primary,
                                               ),
                                               SizedBox(width: 2),
                                               Text(
@@ -935,7 +935,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 style: TextStyle(
                                                   fontSize: 8,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Color(0xFFB5003F),
+                                                  color: Theme.of(context).colorScheme.primary,
                                                 ),
                                               ),
                                             ],
@@ -948,11 +948,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     _buildStatusBadge(),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: 4),
                               if (_nextDate != null) ...[
                                 Text(
                                   _nextDate!['title'],
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Georgia',
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -961,15 +961,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2),
                                 Row(
                                   children: [
-                                    const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF8E717D)),
-                                    const SizedBox(width: 4),
+                                    Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF8E717D)),
+                                    SizedBox(width: 4),
                                     Text(
                                       DateFormat('MMM d, y • h:mm a')
                                           .format(DateTime.parse(_nextDate!['date']).toLocal()),
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF8E717D),
                                       ),
@@ -977,15 +977,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
                                 ),
                                 if (_nextDate!['location'] != null && _nextDate!['location'].toString().trim().isNotEmpty) ...[
-                                  const SizedBox(height: 2),
+                                  SizedBox(height: 2),
                                   Row(
                                     children: [
-                                      const Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF8E717D)),
-                                      const SizedBox(width: 4),
+                                      Icon(Icons.location_on_outlined, size: 12, color: Color(0xFF8E717D)),
+                                      SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
                                           _nextDate!['location'],
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
                                             color: Color(0xFF8E717D),
                                           ),
@@ -997,8 +997,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ],
                               ] else ...[
-                                const SizedBox(height: 4),
-                                const Text(
+                                SizedBox(height: 4),
+                                Text(
                                   'No dates planned yet.',
                                   style: TextStyle(
                                     fontSize: 14,
@@ -1015,10 +1015,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (_nextDate != null && 
                         _nextDate!['status'] == 'pending' && 
                         _nextDate!['creator_id'] != _currentUserId) ...[
-                      const SizedBox(height: 16),
-                      const Divider(color: Color(0xFFFFECEF), height: 1),
-                      const SizedBox(height: 12),
-                      const Text(
+                      SizedBox(height: 16),
+                      Divider(color: Color(0xFFFFECEF), height: 1),
+                      SizedBox(height: 12),
+                      Text(
                         'Your partner proposed this meet-up! Do you want to go?',
                         style: TextStyle(
                           fontSize: 12,
@@ -1027,37 +1027,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _isResponding ? null : () => _respondToDate('declined'),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFFFCCD5)),
-                                foregroundColor: const Color(0xFF8E717D),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                side: BorderSide(color: Color(0xFFFFCCD5)),
+                                foregroundColor: Color(0xFF8E717D),
+                                padding: EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              icon: const Icon(Icons.close_rounded, size: 16),
-                              label: const Text('Decline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              icon: Icon(Icons.close_rounded, size: 16),
+                              label: Text('Decline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: _isResponding ? null : () => _respondToDate('accepted'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFB5003F),
+                                backgroundColor: Theme.of(context).colorScheme.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               icon: _isResponding 
-                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                                  : const Icon(Icons.favorite_rounded, size: 14),
-                              label: const Text('Accept', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+                                  : Icon(Icons.favorite_rounded, size: 14),
+                              label: Text('Accept', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -1065,37 +1065,37 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                     if (_nextDate != null && 
                         (_nextDate!['creator_id'] == _currentUserId || _nextDate!['status'] == 'accepted')) ...[
-                      const SizedBox(height: 16),
-                      const Divider(color: Color(0xFFFFECEF), height: 1),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 16),
+                      Divider(color: Color(0xFFFFECEF), height: 1),
+                      SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: _isResponding ? null : _cancelDatePlan,
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFFFCCD5)),
-                                foregroundColor: const Color(0xFFB5003F),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                side: BorderSide(color: Color(0xFFFFCCD5)),
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                padding: EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                              label: const Text('Cancel Meet-up', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              icon: Icon(Icons.delete_outline_rounded, size: 16),
+                              label: Text('Cancel Meet-up', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: _isResponding ? null : _editDatePlan,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFB5003F),
+                                backgroundColor: Theme.of(context).colorScheme.primary,
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding: EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              icon: const Icon(Icons.edit_rounded, size: 14),
-                              label: const Text('Edit Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              icon: Icon(Icons.edit_rounded, size: 14),
+                              label: Text('Edit Details', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
@@ -1105,22 +1105,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const Spacer(flex: 1),
+              Spacer(flex: 1),
 
               ElevatedButton.icon(
                 onPressed: _showDatePlanner,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFB5003F),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   elevation: 4,
-                  shadowColor: const Color(0xFFB5003F).withOpacity(0.3),
+                  shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                icon: const Icon(Icons.auto_awesome_rounded, size: 16),
-                label: const Text(
+                icon: Icon(Icons.auto_awesome_rounded, size: 16),
+                label: Text(
                   'Plan Meet-up Tonight',
                   style: TextStyle(
                     fontSize: 16,
@@ -1128,7 +1128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
             ],
           ),
         ),

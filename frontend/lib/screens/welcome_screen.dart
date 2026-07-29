@@ -11,13 +11,13 @@ class WelcomeScreen extends StatelessWidget {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFFFFEAEE), // Soft rose pink
-              Color(0xFFFFF5F7), // Gentle white-pink
+              Theme.of(context).colorScheme.background, // Gentle white-pink
             ],
           ),
         ),
@@ -27,12 +27,12 @@ class WelcomeScreen extends StatelessWidget {
             // Main content
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Spacer(),
+                    Spacer(),
                     
                     // Romantic logo placeholder / graphics
                     Stack(
@@ -44,7 +44,7 @@ class WelcomeScreen extends StatelessWidget {
                           child: Icon(
                             Icons.favorite_outline_rounded,
                             size: 180,
-                            color: const Color(0xFFFFB3C6).withOpacity(0.5),
+                            color: Color(0xFFFFB3C6).withOpacity(0.5),
                           ),
                         ),
                         // Square elegant border container matching the design
@@ -52,7 +52,7 @@ class WelcomeScreen extends StatelessWidget {
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFAF7F2), // Off-white
+                            color: Color(0xFFFAF7F2), // Off-white
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -62,7 +62,7 @@ class WelcomeScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -71,7 +71,7 @@ class WelcomeScreen extends StatelessWidget {
                                   children: [
                                     Icon(
                                       Icons.favorite_border_rounded,
-                                      color: Color(0xFFB5003F),
+                                      color: Theme.of(context).colorScheme.primary,
                                       size: 28,
                                     ),
                                     SizedBox(width: 4),
@@ -99,23 +99,23 @@ class WelcomeScreen extends StatelessWidget {
                       ],
                     ),
                     
-                    const SizedBox(height: 40),
+                    SizedBox(height: 40),
                     
                     // Title
-                    const Text(
+                    Text(
                       'Our Space',
                       style: TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF8A003D), // Elegant dark magenta
+                        color: Theme.of(context).colorScheme.primary, // Elegant dark magenta
                       ),
                     ),
                     
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     
                     // Subtitle
-                    const Text(
+                    Text(
                       'A place for us.',
                       style: TextStyle(
                         fontSize: 15,
@@ -125,7 +125,7 @@ class WelcomeScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     
-                    const Spacer(),
+                    Spacer(),
                     
                     // Button "Tap to begin"
                     ElevatedButton(
@@ -136,16 +136,16 @@ class WelcomeScreen extends StatelessWidget {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFB5003F), // Deep crimson
+                        backgroundColor: Theme.of(context).colorScheme.primary, // Deep crimson
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                         elevation: 4,
-                        shadowColor: const Color(0xFFB5003F).withOpacity(0.3),
+                        shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
@@ -165,22 +165,22 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                     ),
                     
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     
                     // Exclusive Luxury pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFECEF),
+                        color: Color(0xFFFFECEF),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.auto_awesome_rounded,
                             size: 12,
-                            color: Color(0xFFB5003F),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                           SizedBox(width: 6),
                           Text(
@@ -189,26 +189,26 @@ class WelcomeScreen extends StatelessWidget {
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
-                              color: Color(0xFFB5003F),
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ],
                       ),
                     ),
                     
-                    const Spacer(),
+                    Spacer(),
                     
                     // Bottom-left outline heart
                     Align(
                       alignment: Alignment.bottomLeft,
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
+                        padding: EdgeInsets.only(left: 8.0, bottom: 8.0),
                         child: Opacity(
                           opacity: 0.0,
                           child: Icon(
                             Icons.favorite_border_rounded,
                             size: 32,
-                            color: const Color(0xFFFFB3C6).withOpacity(0.4),
+                            color: Color(0xFFFFB3C6).withOpacity(0.4),
                           ),
                         ),
                       ),
@@ -226,5 +226,5 @@ class WelcomeScreen extends StatelessWidget {
 class IconSparkles extends StatelessWidget {
   const IconSparkles({super.key});
   @override
-  Widget build(BuildContext context) => const Icon(Icons.star, size: 12);
+  Widget build(BuildContext context) => Icon(Icons.star, size: 12);
 }

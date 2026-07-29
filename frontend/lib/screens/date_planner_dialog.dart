@@ -38,8 +38,8 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFFB5003F),
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
               onPrimary: Colors.white,
               onSurface: Color(0xFF2C1820),
             ),
@@ -57,8 +57,8 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
-                primary: Color(0xFFB5003F),
+              colorScheme: ColorScheme.light(
+                primary: Theme.of(context).colorScheme.primary,
                 onPrimary: Colors.white,
                 onSurface: Color(0xFF2C1820),
               ),
@@ -138,11 +138,11 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
-      backgroundColor: const Color(0xFFFFF5F7),
+      backgroundColor: Theme.of(context).colorScheme.background,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxDialogHeight),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -153,7 +153,7 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
                   children: [
                     Text(
                       widget.initialDatePlan != null ? 'Edit Meet-up Details' : 'Plan Meet-up Tonight',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Georgia',
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -161,82 +161,82 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF8E717D)),
+                      icon: Icon(Icons.close_rounded, color: Color(0xFF8E717D)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 
                 // Title Field
-                const Text(
+                Text(
                   'Meet-up Title',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 TextField(
                   controller: _titleController,
                   decoration: InputDecoration(
                     hintText: 'e.g. Candlelit Dinner',
-                    hintStyle: const TextStyle(color: Colors.black26),
+                    hintStyle: TextStyle(color: Colors.black26),
                     filled: true,
-                    fillColor: const Color(0xFFFFECEF),
+                    fillColor: Color(0xFFFFECEF),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
   
                 // Location Field
-                const Text(
+                Text(
                   'Location (Optional)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 TextField(
                   controller: _locationController,
                   decoration: InputDecoration(
                     hintText: 'e.g. Bella Italia Restaurant',
-                    hintStyle: const TextStyle(color: Colors.black26),
+                    hintStyle: TextStyle(color: Colors.black26),
                     filled: true,
-                    fillColor: const Color(0xFFFFECEF),
+                    fillColor: Color(0xFFFFECEF),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
   
                 // DateTime Picker
-                const Text(
+                Text(
                   'Date & Time',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8E717D)),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 InkWell(
                   onTap: _pickDateTime,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFECEF),
+                      color: Color(0xFFFFECEF),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFFB5003F)),
-                        const SizedBox(width: 12),
+                        Icon(Icons.calendar_today_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             _selectedDateTime != null
                                 ? DateFormat('EEEE, MMM d, y • h:mm a').format(_selectedDateTime!)
                                 : 'Select Date & Time',
                             style: TextStyle(
-                              color: _selectedDateTime != null ? const Color(0xFF2C1820) : Colors.black26,
+                              color: _selectedDateTime != null ? Color(0xFF2C1820) : Colors.black26,
                               fontSize: 14,
                             ),
                           ),
@@ -246,30 +246,30 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
                   ),
                 ),
                 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
   
                 if (_errorMessage != null) ...[
                   Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Color(0xFFB5003F), fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                 ],
   
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFB5003F),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
@@ -282,10 +282,10 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
                           children: [
                             Text(
                               widget.initialDatePlan != null ? 'Update Meet-up Details' : 'Propose Meet-up',
-                              style: const TextStyle(fontWeight: FontWeight.bold)
+                              style: TextStyle(fontWeight: FontWeight.bold)
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.favorite_border_rounded, size: 16),
+                            SizedBox(width: 8),
+                            Icon(Icons.favorite_border_rounded, size: 16),
                           ],
                         ),
                 ),

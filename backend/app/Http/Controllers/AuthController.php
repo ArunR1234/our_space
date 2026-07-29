@@ -245,4 +245,58 @@ class AuthController extends Controller
         }
         return response()->json(['message' => 'No pending pairing request found.'], 422);
     }
+
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'avatar' => 'required|string|max:10',
+        ]);
+
+        $user = $request->user();
+        $user->update([
+            'name' => $request->name,
+            'avatar' => $request->avatar,
+        ]);
+
+        return response()->json([
+            'user' => $user,
+            'message' => 'Profile updated successfully!'
+        ]);
+    }
+
+    public function updateFcmToken(Request $request)
+    {
+        $request->validate([
+            'fcm_token' => 'required|string',
+        ]);
+
+        $user = $request->user();
+        $user->update([
+            'fcm_token' => $request->fcm_token,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'FCM Token updated successfully!'
+        ]);
+    }
+
+    public function updatePreferences(Request $request)
+    {
+        $request->validate([
+            'show_previews' => 'required|boolean',
+        ]);
+
+        $user = $request->user();
+        $user->update([
+            'show_previews' => $request->show_previews,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'user' => $user,
+            'message' => 'Notification preferences updated successfully!'
+        ]);
+    }
 }

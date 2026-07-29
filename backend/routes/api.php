@@ -17,6 +17,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user-status', [AuthController::class, 'userStatus']);
     Route::post('/pair-partner', [AuthController::class, 'pairPartner']);
     Route::post('/cancel-pairing', [AuthController::class, 'cancelPairing']);
+    Route::post('/user/update', [AuthController::class, 'updateProfile']);
+    Route::post('/user/fcm-token', [AuthController::class, 'updateFcmToken']);
+    Route::post('/user/preferences', [AuthController::class, 'updatePreferences']);
     
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
     Route::post('/relationship/anniversary', [DashboardController::class, 'updateAnniversary']);

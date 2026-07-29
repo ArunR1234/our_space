@@ -88,7 +88,7 @@ class _PairingScreenState extends State<PairingScreen> {
         if (partner != null) {
           // Partner already exists and is linked!
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Connected successfully!')),
+            SnackBar(content: Text('Connected successfully!')),
           );
           if (mounted) {
             Navigator.pushReplacement(
@@ -116,9 +116,9 @@ class _PairingScreenState extends State<PairingScreen> {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 16,
-          backgroundColor: const Color(0xFFFFF5F7),
+          backgroundColor: Theme.of(context).colorScheme.background,
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,23 +126,23 @@ class _PairingScreenState extends State<PairingScreen> {
                 // Heart Icon
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFECEF),
+                      color: Color(0xFFFFECEF),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.favorite_border_rounded,
                       size: 40,
-                      color: Color(0xFFDE1B5D),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 
                 // Title
-                const Text(
+                Text(
                   'Connected Pending',
                   style: TextStyle(
                     fontFamily: 'Georgia',
@@ -152,28 +152,28 @@ class _PairingScreenState extends State<PairingScreen> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 
                 // Content
                 Text(
                   'Your partner ($partnerEmail) has not created an account yet. '
                   'When they create an account, they will connect with you immediately.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     color: Color(0xFF8E717D),
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 
                 // Proceed / Enter Button
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [
-                        Color(0xFFDE1B5D),
-                        Color(0xFF8A003D),
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.primary,
                       ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
@@ -181,7 +181,7 @@ class _PairingScreenState extends State<PairingScreen> {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFB5003F).withOpacity(0.2),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -199,12 +199,12 @@ class _PairingScreenState extends State<PairingScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Enter to Explore',
                       style: TextStyle(
                         fontSize: 15,
@@ -235,11 +235,11 @@ class _PairingScreenState extends State<PairingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading && _emailController.text.isEmpty) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFF5F7),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFDE1B5D)),
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
           ),
         ),
       );
@@ -248,20 +248,20 @@ class _PairingScreenState extends State<PairingScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFFFFEAEE), // Soft rose pink
-              Color(0xFFFFF5F7), // Gentle white-pink
+              Theme.of(context).colorScheme.background, // Gentle white-pink
             ],
           ),
         ),
         child: SafeArea(
           child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+              padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -270,21 +270,21 @@ class _PairingScreenState extends State<PairingScreen> {
                     child: GestureDetector(
                       onTap: _handleLogout,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFECEF),
+                          color: Color(0xFFFFECEF),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.white, width: 1),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.logout_rounded, color: Color(0xFFDE1B5D), size: 14),
+                            Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.primary, size: 14),
                             SizedBox(width: 6),
                             Text(
                               'Logout',
                               style: TextStyle(
-                                color: Color(0xFFDE1B5D),
+                                color: Theme.of(context).colorScheme.primary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -296,7 +296,7 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 30),
+                  SizedBox(height: 30),
                   
                   // Icon Header
                   Container(
@@ -307,7 +307,7 @@ class _PairingScreenState extends State<PairingScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFDE1B5D).withOpacity(0.12),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
                           blurRadius: 20,
                           spreadRadius: 4,
                           offset: const Offset(0, 8),
@@ -319,7 +319,7 @@ class _PairingScreenState extends State<PairingScreen> {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
+                          gradient: LinearGradient(
                             colors: [
                               Color(0xFFFFEAEE),
                               Color(0xFFFFCCD5),
@@ -330,20 +330,20 @@ class _PairingScreenState extends State<PairingScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.favorite_rounded,
                             size: 44,
-                            color: Color(0xFFDE1B5D),
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
                     ),
                   ),
                   
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
                   
-                  const Text(
+                  Text(
                     'Connect Hearts',
                     style: TextStyle(
                       fontFamily: 'Georgia',
@@ -354,9 +354,9 @@ class _PairingScreenState extends State<PairingScreen> {
                     textAlign: TextAlign.center,
                   ),
                   
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12.0),
                     child: Text(
                       'Enter your partner\'s email to link your accounts. Once connected, you can share messages and plan dates in your private space.',
@@ -369,13 +369,13 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 36),
+                  SizedBox(height: 36),
                   
                   // Input Form
                   Container(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(24.0),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFECEF).withOpacity(0.9),
+                      color: Color(0xFFFFECEF).withOpacity(0.9),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.4),
@@ -383,7 +383,7 @@ class _PairingScreenState extends State<PairingScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFB5003F).withOpacity(0.04),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
                           blurRadius: 24,
                           offset: const Offset(0, 12),
                         ),
@@ -396,11 +396,11 @@ class _PairingScreenState extends State<PairingScreen> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
+                            prefixIcon: Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
                             hintText: 'partner@ourspace.com',
-                            hintStyle: const TextStyle(color: Colors.black26),
+                            hintStyle: TextStyle(color: Colors.black26),
                             filled: true,
-                            fillColor: const Color(0xFFFFF5F7),
+                            fillColor: Theme.of(context).colorScheme.background,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -413,28 +413,28 @@ class _PairingScreenState extends State<PairingScreen> {
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
                         
                         if (_errorMessage != null) ...[
                           Text(
                             _errorMessage!,
-                            style: const TextStyle(color: Color(0xFFB5003F), fontSize: 13),
+                            style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                         ],
                         
                         Opacity(
                           opacity: _isLoading ? 0.6 : 1.0,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [
-                                  Color(0xFFDE1B5D),
-                                  Color(0xFF8A003D),
+                                  Theme.of(context).colorScheme.primary,
+                                  Theme.of(context).colorScheme.primary,
                                 ],
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
@@ -442,7 +442,7 @@ class _PairingScreenState extends State<PairingScreen> {
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFB5003F).withOpacity(0.3),
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 6),
                                 ),
@@ -454,13 +454,13 @@ class _PairingScreenState extends State<PairingScreen> {
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30),
                                 ),
                               ),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
@@ -468,7 +468,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                       ),
                                     )
-                                  : const Row(
+                                  : Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
@@ -490,7 +490,7 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 50),
+                  SizedBox(height: 50),
                   
                   // Decorative bottom quote
                   Opacity(
@@ -500,20 +500,20 @@ class _PairingScreenState extends State<PairingScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(width: 40, height: 1, color: const Color(0xFFFFCCD5)),
-                            const Padding(
+                            Container(width: 40, height: 1, color: Color(0xFFFFCCD5)),
+                            Padding(
                               padding: EdgeInsets.symmetric(horizontal: 10.0),
                               child: Icon(
                                 Icons.favorite_border_rounded,
                                 size: 14,
-                                color: Color(0xFFDE1B5D),
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
-                            Container(width: 40, height: 1, color: const Color(0xFFFFCCD5)),
+                            Container(width: 40, height: 1, color: Color(0xFFFFCCD5)),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        const Padding(
+                        SizedBox(height: 16),
+                        Padding(
                           padding: EdgeInsets.symmetric(horizontal: 32.0),
                           child: Text(
                             '"Two hearts, one shared space. A private sanctuary built exclusively for the two of you to write your own love story."',
@@ -531,7 +531,7 @@ class _PairingScreenState extends State<PairingScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 30),
+                  SizedBox(height: 30),
                 ],
               ),
             ),
