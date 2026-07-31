@@ -656,7 +656,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
@@ -666,7 +665,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
                     children: [
                       // Notifications switch
                       SwitchListTile(
@@ -741,6 +744,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                 ),
+              ),
                 SizedBox(height: 24),
 
                 // Theme selection section
@@ -795,7 +799,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Logout Button Card
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
@@ -805,7 +808,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-                  child: ListTile(
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
                     onTap: _handleLogout,
                     leading: Icon(
                       Icons.logout_rounded,
@@ -821,6 +828,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: Text('Sign out from this device'),
                   ),
                 ),
+              ),
                 SizedBox(height: 40),
 
                 // Version display

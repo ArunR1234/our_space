@@ -432,134 +432,136 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)))
-          : Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: 20),
-                  // User details
-                  _buildProfileCard(
-                    title: 'My Profile',
-                    name: _user?['name'] ?? 'Me',
-                    email: _user?['email'] ?? '',
-                    avatar: _user?['avatar'] ?? '💖',
-                    icon: Icons.person_rounded,
-                    isMe: true,
-                  ),
-                  SizedBox(height: 20),
-                  // Partner details
-                  _buildProfileCard(
-                    title: 'My Partner',
-                    name: _partner?['name'] ?? 'Waiting...',
-                    email: _partner?['email'] ?? 'Not paired yet',
-                    avatar: _partner?['avatar'],
-                    icon: Icons.favorite_rounded,
-                    accentColor: Theme.of(context).colorScheme.primary,
-                    isMe: false,
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06), width: 1.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 10,
-                        ),
-                      ],
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+                    // User details
+                    _buildProfileCard(
+                      title: 'My Profile',
+                      name: _user?['name'] ?? 'Me',
+                      email: _user?['email'] ?? '',
+                      avatar: _user?['avatar'] ?? '💖',
+                      icon: Icons.person_rounded,
+                      isMe: true,
                     ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.favorite_rounded,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 36,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          '${_calculateDaysTogether(_anniversaryDate)} Days',
-                          style: TextStyle(
-                            fontFamily: 'Georgia',
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2C1820),
+                    const SizedBox(height: 20),
+                    // Partner details
+                    _buildProfileCard(
+                      title: 'My Partner',
+                      name: _partner?['name'] ?? 'Waiting...',
+                      email: _partner?['email'] ?? 'Not paired yet',
+                      avatar: _partner?['avatar'],
+                      icon: Icons.favorite_rounded,
+                      accentColor: Theme.of(context).colorScheme.primary,
+                      isMe: false,
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 10,
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'OF TOGETHERNESS',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF8E717D),
-                            letterSpacing: 1.0,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.favorite_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 36,
                           ),
-                        ),
-                        SizedBox(height: 14),
-                        Divider(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), thickness: 1),
-                        SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'ANNIVERSARY DATE',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF8E717D),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    _formatAnniversaryDate(_anniversaryDate),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF2C1820),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 10),
+                          Text(
+                            '${_calculateDaysTogether(_anniversaryDate)} Days',
+                            style: const TextStyle(
+                              fontFamily: 'Georgia',
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2C1820),
                             ),
-                            TextButton.icon(
-                              onPressed: _selectAnniversaryDate,
-                              icon: Icon(Icons.edit_calendar_rounded, size: 14),
-                              label: Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              style: TextButton.styleFrom(
-                                foregroundColor: Theme.of(context).colorScheme.primary,
-                                backgroundColor: Color(0xFFFFECEF),
-                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'OF TOGETHERNESS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF8E717D),
+                              letterSpacing: 1.0,
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(height: 14),
+                          Divider(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), thickness: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'ANNIVERSARY DATE',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF8E717D),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatAnniversaryDate(_anniversaryDate),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF2C1820),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: _selectAnniversaryDate,
+                                icon: const Icon(Icons.edit_calendar_rounded, size: 14),
+                                label: const Text('Change', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Theme.of(context).colorScheme.primary,
+                                  backgroundColor: const Color(0xFFFFECEF),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: _handleLogout,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _handleLogout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
-                    child: Text('Logout from Journey', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
     );
