@@ -138,7 +138,7 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
       ),
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxDialogHeight),
         child: Padding(

@@ -64,7 +64,11 @@ class AuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = User::where('email', $request->email)->first();
+        // Eager load both sides of relationship + partner in one query pass
+        $user = User::with([
+            'relationshipsAsUserOne.userTwo',
+            'relationshipsAsUserTwo.userOne',
+        ])->where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
@@ -73,19 +77,25 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+        $relationship = $user->relationship;
+        $partner = $user->partner();
 
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
             'user' => $user,
-            'relationship' => $user->relationship,
-            'partner' => $user->partner(),
+            'relationship' => $relationship,
+            'partner' => $partner,
         ]);
     }
 
     public function userStatus(Request $request)
     {
-        $user = $request->user();
+        $user = User::with([
+            'relationshipsAsUserOne.userTwo',
+            'relationshipsAsUserTwo.userOne',
+        ])->find($request->user()->id);
+
         return response()->json([
             'user' => $user,
             'relationship' => $user->relationship,

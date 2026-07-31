@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
@@ -248,14 +247,6 @@ class _ChatScreenState extends State<ChatScreen> {
     // Start periodic heartbeat timer
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      if (mounted && _relationshipId != null && _currentUserId != null) {
-        WebSocketService.instance.triggerClientEvent(
-          'client-status', 
-          _relationshipId!, 
-          {'status': 'online', 'user_id': _currentUserId}
-        );
-      }
-
       // Offline threshold check
       if (_isPartnerOnline && _lastPartnerHeartbeat != null) {
         final diff = DateTime.now().difference(_lastPartnerHeartbeat!);
@@ -376,14 +367,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       final messageId = data['id'];
       final newContent = data['content'] ?? '';
-      setState(() {
-        _messages = _messages.map((msg) {
-          if (msg.id == messageId) {
-            return msg.copyWith(content: newContent);
-          }
-          return msg;
-        }).toList();
-      });
+      final index = _messages.indexWhere((msg) => msg.id == messageId);
+      if (index != -1) {
+        setState(() {
+          _messages[index] = _messages[index].copyWith(content: newContent);
+        });
+      }
     }
   }
 
@@ -400,14 +389,12 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onMessageReadReceived(Map<String, dynamic> data) {
     if (mounted) {
       final messageId = data['id'];
-      setState(() {
-        _messages = _messages.map((msg) {
-          if (msg.id == messageId) {
-            return msg.copyWith(isRead: true);
-          }
-          return msg;
-        }).toList();
-      });
+      final index = _messages.indexWhere((msg) => msg.id == messageId);
+      if (index != -1) {
+        setState(() {
+          _messages[index] = _messages[index].copyWith(isRead: true);
+        });
+      }
     }
   }
 
@@ -416,19 +403,17 @@ class _ChatScreenState extends State<ChatScreen> {
       final messageId = data['id'];
       final senderReaction = data['sender_reaction'];
       final receiverReaction = data['receiver_reaction'];
-      setState(() {
-        _messages = _messages.map((msg) {
-          if (msg.id == messageId) {
-            return msg.copyWith(
-              senderReaction: senderReaction,
-              receiverReaction: receiverReaction,
-              clearSenderReaction: senderReaction == null,
-              clearReceiverReaction: receiverReaction == null,
-            );
-          }
-          return msg;
-        }).toList();
-      });
+      final index = _messages.indexWhere((msg) => msg.id == messageId);
+      if (index != -1) {
+        setState(() {
+          _messages[index] = _messages[index].copyWith(
+            senderReaction: senderReaction,
+            receiverReaction: receiverReaction,
+            clearSenderReaction: senderReaction == null,
+            clearReceiverReaction: receiverReaction == null,
+          );
+        });
+      }
     }
   }
 
@@ -591,9 +576,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.background,
+                        color: Theme.of(context).colorScheme.surface,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2), width: 1.5),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2), width: 1.5),
                       ),
                       child: Center(
                         child: Icon(
@@ -643,7 +628,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: Colors.black.withValues(alpha: 0.04),
                           blurRadius: 8,
                         ),
                       ],
@@ -794,7 +779,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -915,7 +900,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF8E717D).withOpacity(0.5),
+                                      color: Color(0xFF8E717D).withValues(alpha: 0.5),
                                       letterSpacing: 0.8,
                                     ),
                                   ),
@@ -928,7 +913,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   children: [
                                     Expanded(
                                       child: Divider(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                                         thickness: 1,
                                         indent: 16,
                                         endIndent: 8,
@@ -956,7 +941,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ),
                                     Expanded(
                                       child: Divider(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                                         thickness: 1,
                                         indent: 8,
                                         endIndent: 16,
@@ -1175,7 +1160,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   border: Border.all(color: Color(0xFFF1D6DB), width: 1),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
+                                      color: Colors.black.withValues(alpha: 0.08),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -1266,7 +1251,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       hintText: 'Type your heart...',
                       hintStyle: TextStyle(color: Colors.black26),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.background,
+                      fillColor: Theme.of(context).colorScheme.surface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -1320,8 +1305,8 @@ class _ChatScreenState extends State<ChatScreen> {
       decoration: BoxDecoration(
         color: Color(0xFFFFF0F3),
         border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
-          bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
+          top: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)),
+          bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)),
         ),
       ),
       child: Row(
@@ -1382,8 +1367,8 @@ class _ChatScreenState extends State<ChatScreen> {
       decoration: BoxDecoration(
         color: Color(0xFFFFF0F3),
         border: Border(
-          top: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
-          bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.08)),
+          top: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)),
+          bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)),
         ),
       ),
       child: Row(
@@ -1442,9 +1427,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final senderName = isReplyMe ? 'You' : (_partner != null ? _partner!['name'] : 'My Love');
     
     final barColor = isMeBubble ? Colors.white70 : Theme.of(context).colorScheme.primary;
-    final titleColor = isMeBubble ? Colors.white.withOpacity(0.9) : Theme.of(context).colorScheme.primary;
+    final titleColor = isMeBubble ? Colors.white.withValues(alpha: 0.9) : Theme.of(context).colorScheme.primary;
     final contentColor = isMeBubble ? Colors.white70 : Color(0xFF8E717D);
-    final bgColor = isMeBubble ? Colors.white.withOpacity(0.12) : Color(0xFFFFF0F3);
+    final bgColor = isMeBubble ? Colors.white.withValues(alpha: 0.12) : Color(0xFFFFF0F3);
 
     return Container(
       width: double.infinity, // Expand to fill bubble width
@@ -1660,7 +1645,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1744,7 +1729,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.02),
+                                        color: Colors.black.withValues(alpha: 0.02),
                                         blurRadius: 2,
                                       ),
                                     ],
@@ -1901,10 +1886,10 @@ class SwipeToReply extends StatefulWidget {
   final VoidCallback onReply;
 
   const SwipeToReply({
-    key,
+    super.key,
     required this.child,
     required this.onReply,
-  }) : super(key: key);
+  });
 
   @override
   State<SwipeToReply> createState() => _SwipeToReplyState();
@@ -1912,7 +1897,7 @@ class SwipeToReply extends StatefulWidget {
 
 class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  double _dragOffset = 0;
+  final ValueNotifier<double> _offsetNotifier = ValueNotifier<double>(0.0);
   bool _thresholdReached = false;
 
   @override
@@ -1922,30 +1907,28 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
       vsync: this,
       duration: const Duration(milliseconds: 200),
     )..addListener(() {
-        setState(() {
-          _dragOffset = _dragOffset * (1 - _controller.value);
-        });
+        _offsetNotifier.value = _offsetNotifier.value * (1 - _controller.value);
       });
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _offsetNotifier.dispose();
     super.dispose();
   }
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
-    if (details.primaryDelta! > 0 || _dragOffset > 0) {
-      setState(() {
-        _dragOffset += details.primaryDelta!;
-        if (_dragOffset > 90.0) _dragOffset = 90.0;
-        
-        if (_dragOffset >= 60.0 && !_thresholdReached) {
-          _thresholdReached = true;
-        } else if (_dragOffset < 60.0 && _thresholdReached) {
-          _thresholdReached = false;
-        }
-      });
+    if (details.primaryDelta! > 0 || _offsetNotifier.value > 0) {
+      final double newOffset = (_offsetNotifier.value + details.primaryDelta!).clamp(0.0, 90.0);
+      _offsetNotifier.value = newOffset;
+      
+      final bool reached = newOffset >= 60.0;
+      if (reached != _thresholdReached) {
+        setState(() {
+          _thresholdReached = reached;
+        });
+      }
     }
   }
 
@@ -1953,7 +1936,9 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
     if (_thresholdReached) {
       widget.onReply();
     }
-    _thresholdReached = false;
+    setState(() {
+      _thresholdReached = false;
+    });
     _controller.forward(from: 0);
   }
 
@@ -1965,62 +1950,45 @@ class _SwipeToReplyState extends State<SwipeToReply> with SingleTickerProviderSt
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          if (_dragOffset > 0)
-            Positioned(
-              left: 12,
-              child: Opacity(
-                opacity: (_dragOffset / 60.0).clamp(0.0, 1.0),
-                child: AnimatedScale(
-                  scale: _thresholdReached ? 1.2 : 1.0,
-                  duration: const Duration(milliseconds: 100),
-                  child: Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFFFECEF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.reply_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 18,
+          ValueListenableBuilder<double>(
+            valueListenable: _offsetNotifier,
+            builder: (context, dragOffset, child) {
+              if (dragOffset <= 0) return const SizedBox.shrink();
+              return Positioned(
+                left: 12,
+                child: Opacity(
+                  opacity: (dragOffset / 60.0).clamp(0.0, 1.0),
+                  child: AnimatedScale(
+                    scale: _thresholdReached ? 1.2 : 1.0,
+                    duration: const Duration(milliseconds: 100),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFECEF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.reply_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          Transform.translate(
-            offset: Offset(_dragOffset, 0),
+              );
+            },
+          ),
+          ValueListenableBuilder<double>(
+            valueListenable: _offsetNotifier,
+            builder: (context, dragOffset, child) {
+              return Transform.translate(
+                offset: Offset(dragOffset, 0),
+                child: child,
+              );
+            },
             child: widget.child,
           ),
         ],
-      ),
-    );
-  }
-}
-
-enum MediaType { image, video, audio, file }
-
-class FullScreenImageViewer extends StatelessWidget {
-  final String imageUrl;
-
-  const FullScreenImageViewer({super.key, required this.imageUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-          ),
-        ),
       ),
     );
   }

@@ -15,14 +15,12 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
-  String _romanticQuote = "Every moment with you is a new favorite memory. Can't wait for what's next.";
   Map<String, dynamic>? _nextDate;
-  Map<String, dynamic>? _partner;
   String? _anniversaryDateStr;
   
   Timer? _timer;
-  String _timeElapsedStr = "00h : 00m : 00s";
-  int _daysTogetherLive = 0;
+  final ValueNotifier<String> _timeElapsedNotifier = ValueNotifier<String>("00h : 00m : 00s");
+  final ValueNotifier<int> _daysTogetherNotifier = ValueNotifier<int>(0);
 
   int? _currentUserId;
   bool _isResponding = false;
@@ -38,6 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _timeElapsedNotifier.dispose();
+    _daysTogetherNotifier.dispose();
     _removeWebSocketListeners();
     super.dispose();
   }
@@ -74,9 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final summary = await ApiService.instance.getDashboardSummary();
       if (mounted) {
         setState(() {
-          _romanticQuote = summary['romantic_quote'] ?? "Every moment with you is a new favorite memory. Can't wait for what's next.";
           _nextDate = summary['next_date'];
-          _partner = summary['partner'];
           _anniversaryDateStr = summary['anniversary_date'];
           _currentUserId = summary['user_id'];
           _isLoading = false;
@@ -121,10 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_anniversaryDateStr == null) {
-      setState(() {
-        _timeElapsedStr = "00h : 00m : 00s";
-        _daysTogetherLive = 0;
-      });
+      _timeElapsedNotifier.value = "00h : 00m : 00s";
+      _daysTogetherNotifier.value = 0;
       return;
     }
 
@@ -134,10 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final difference = now.difference(anniversary);
 
       if (difference.isNegative) {
-        setState(() {
-          _timeElapsedStr = "00h : 00m : 00s";
-          _daysTogetherLive = 0;
-        });
+        _timeElapsedNotifier.value = "00h : 00m : 00s";
+        _daysTogetherNotifier.value = 0;
         return;
       }
 
@@ -151,10 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final minutesStr = minutes.toString().padLeft(2, '0');
       final secondsStr = seconds.toString().padLeft(2, '0');
 
-      setState(() {
-        _daysTogetherLive = days;
-        _timeElapsedStr = "${hoursStr}h : ${minutesStr}m : ${secondsStr}s";
-      });
+      _daysTogetherNotifier.value = days;
+      _timeElapsedNotifier.value = "${hoursStr}h : ${minutesStr}m : ${secondsStr}s";
     } catch (e) {
       print('Error parsing anniversary date: $e');
     }
@@ -349,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Theme.of(context).colorScheme.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           title: Text('Cancel Meet-up', style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold)),
           content: Text('Are you sure you want to cancel this proposed meet-up?', style: TextStyle(color: Color(0xFF8E717D))),
           actions: [
@@ -422,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (BuildContext context) {
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            backgroundColor: Theme.of(context).colorScheme.background,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             title: Text(
               'Active Meet-up Exists',
               style: TextStyle(
@@ -461,14 +453,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showDatePlanHistory() {
+    final Future<List<dynamic>> datePlansFuture = ApiService.instance.getDatePlans();
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: Theme.of(context).colorScheme.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           child: Container(
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             constraints: const BoxConstraints(maxHeight: 450),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -479,28 +472,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         Icon(Icons.history_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'Our Meet-up History',
                           style: TextStyle(
                             fontFamily: 'Georgia',
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2C1820),
+                            color: const Color(0xFF2C1820),
                           ),
                         ),
                       ],
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, color: Color(0xFF8E717D), size: 20),
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF8E717D), size: 20),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Expanded(
                   child: FutureBuilder<List<dynamic>>(
-                    future: ApiService.instance.getDatePlans(),
+                    future: datePlansFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return Center(
@@ -582,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Container(
                                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: statusColor.withOpacity(0.1),
+                                        color: statusColor.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Row(
@@ -651,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
@@ -662,7 +655,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -746,7 +739,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                     width: 1.5,
                   ),
                   gradient: LinearGradient(
@@ -754,12 +747,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     end: Alignment.bottomRight,
                     colors: [
                       Colors.white,
-                      Color(0xFFFFF0F3).withOpacity(0.6),
+                      Color(0xFFFFF0F3).withValues(alpha: 0.6),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
@@ -775,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                             blurRadius: 12,
                             spreadRadius: 1,
                           ),
@@ -798,32 +791,42 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     SizedBox(height: 6),
-                    Text(
-                      '$_daysTogetherLive',
-                      style: TextStyle(
-                        fontFamily: 'Georgia',
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                        height: 1.1,
-                      ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: _daysTogetherNotifier,
+                      builder: (context, days, _) {
+                        return Text(
+                          '$days',
+                          style: TextStyle(
+                            fontFamily: 'Georgia',
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                            height: 1.1,
+                          ),
+                        );
+                      },
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Color(0xFFFFECEF).withOpacity(0.5),
+                        color: const Color(0xFFFFECEF).withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        _timeElapsedStr,
-                        style: TextStyle(
-                          fontFamily: 'Courier',
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                          letterSpacing: 1.0,
-                        ),
+                      child: ValueListenableBuilder<String>(
+                        valueListenable: _timeElapsedNotifier,
+                        builder: (context, timeElapsed, _) {
+                          return Text(
+                            timeElapsed,
+                            style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                              letterSpacing: 1.0,
+                            ),
+                          );
+                        },
                       ),
                     ),
                     SizedBox(height: 14),
@@ -834,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+                          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -868,12 +871,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.01),
+                      color: Colors.black.withValues(alpha: 0.01),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -1114,7 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                   elevation: 4,
-                  shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),

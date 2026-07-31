@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:math';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -85,7 +84,7 @@ class _OurSpaceAppState extends State<OurSpaceApp> {
       case 'crimson':
       default:
         seedColor = Theme.of(context).colorScheme.primary;
-        backgroundColor = Theme.of(context).colorScheme.background;
+        backgroundColor = Theme.of(context).colorScheme.surface;
         break;
     }
 
@@ -94,8 +93,7 @@ class _OurSpaceAppState extends State<OurSpaceApp> {
       colorScheme: ColorScheme.fromSeed(
         seedColor: seedColor,
         primary: seedColor,
-        background: backgroundColor,
-        surface: Colors.white,
+        surface: backgroundColor,
       ),
       appBarTheme: const AppBarTheme(
         systemOverlayStyle: SystemUiOverlayStyle(
@@ -196,7 +194,7 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     if (_checkingAuth) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
@@ -239,8 +237,12 @@ class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProvider
 
   @override
   void dispose() {
-    for (final c in _controllers) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     _shakeController.dispose();
     super.dispose();
   }
@@ -265,7 +267,9 @@ class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProvider
     } else {
       _shakeController.forward(from: 0);
       setState(() => _hasError = true);
-      for (final c in _controllers) c.clear();
+      for (final c in _controllers) {
+        c.clear();
+      }
       _focusNodes[0].requestFocus();
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) setState(() => _hasError = false);
@@ -277,7 +281,7 @@ class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -289,7 +293,7 @@ class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProvider
                 Container(
                   width: 80, height: 80,
                   decoration: BoxDecoration(
-                    color: primary.withOpacity(0.1),
+                    color: primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.lock_rounded, size: 40, color: primary),
@@ -344,11 +348,11 @@ class _PinLockScreenState extends State<PinLockScreen> with SingleTickerProvider
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(
-          color: _hasError ? Colors.red.shade300 : primary.withOpacity(0.3),
+          color: _hasError ? Colors.red.shade300 : primary.withValues(alpha: 0.3),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: primary.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: TextField(
         controller: _controllers[index],
@@ -380,6 +384,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   int? _globalRelationshipId;
   int? _globalUserId;
   final FlutterLocalNotificationsPlugin _localNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  StreamSubscription<RemoteMessage>? _fcmMessageSubscription;
+  StreamSubscription<String>? _fcmTokenRefreshSubscription;
 
   @override
   void initState() {
@@ -410,7 +416,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
     // Listen to foreground FCM push notifications and show local notification banners
     try {
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _fcmMessageSubscription = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         final notification = message.notification;
         if (notification != null && _currentIndex != 1) {
           _showLocalNotification(
@@ -420,7 +426,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         }
       });
     } catch (e) {
-      print('FCM foreground listener ignored: $e');
+      if (kDebugMode) {
+        print('FCM foreground listener ignored: $e');
+      }
     }
   }
 
@@ -455,7 +463,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         await Permission.notification.request();
       }
     } catch (e) {
-      print('Error requesting notification permission: $e');
+      if (kDebugMode) {
+        print('Error requesting notification permission: $e');
+      }
     }
   }
 
@@ -463,6 +473,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void dispose() {
     _globalHeartbeatTimer?.cancel();
     _globalHeartbeatTimer = null;
+    _fcmMessageSubscription?.cancel();
+    _fcmTokenRefreshSubscription?.cancel();
     WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
     WebSocketService.instance.removeListener('App\\Events\\MessageSent', _onGlobalMessageSentReceived);
     super.dispose();
@@ -486,8 +498,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
         // Broadcast online status immediately when user enters the app
         _globalRelationshipId = relationshipId;
-        final statusData = await ApiService.instance.getUserStatus();
-        _globalUserId = statusData['user']?['id'];
+        _globalUserId = status['user']?['id']; // Optimized: reuse user status loaded above
 
         if (_globalUserId != null) {
           // Send initial online ping
@@ -501,7 +512,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             }
           });
 
-          // Keep broadcasting online every 8 seconds while app is open
+          // Keep broadcasting online every 15 seconds while app is open
           _globalHeartbeatTimer?.cancel();
           _globalHeartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
             if (mounted && _globalRelationshipId != null && _globalUserId != null) {
@@ -536,7 +547,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         }
       }
     } catch (e) {
-      print('Error setting up pending partner listener: $e');
+      if (kDebugMode) {
+        print('Error setting up pending partner listener: $e');
+      }
     }
   }
 
@@ -545,19 +558,25 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       final messaging = FirebaseMessaging.instance;
       final String? token = await messaging.getToken();
       if (token != null) {
-        print('FCM Token: $token');
+        if (kDebugMode) {
+          print('FCM Token: $token');
+        }
         await ApiService.instance.updateFcmToken(token);
       }
 
-      messaging.onTokenRefresh.listen((newToken) async {
+      _fcmTokenRefreshSubscription = messaging.onTokenRefresh.listen((newToken) async {
         try {
           await ApiService.instance.updateFcmToken(newToken);
         } catch (e) {
-          print('Error updating refreshed FCM token: $e');
+          if (kDebugMode) {
+            print('Error updating refreshed FCM token: $e');
+          }
         }
       });
     } catch (e) {
-      print('FCM token setup ignored (probably missing Firebase config): $e');
+      if (kDebugMode) {
+        print('FCM token setup ignored (probably missing Firebase config): $e');
+      }
     }
   }
 
@@ -591,7 +610,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           elevation: 16,
-          backgroundColor: Theme.of(context).colorScheme.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Column(
@@ -611,7 +630,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                               blurRadius: 16,
                               spreadRadius: 2,
                             ),
@@ -667,7 +686,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 6),
                       ),
@@ -733,7 +752,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
                 color: Colors.white,
                 border: Border(
                   top: BorderSide(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
                     width: 1,
                   ),
                 ),
@@ -787,7 +806,7 @@ class CallPlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -800,7 +819,7 @@ class CallPlaceholderScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.phone_rounded, size: 64, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+              Icon(Icons.phone_rounded, size: 64, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
               SizedBox(height: 16),
               Text(
                 'Coming Soon',
@@ -832,7 +851,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _chatSoundsEnabled = true;
   bool _showPreviews = true;
   bool _appLockEnabled = false;
-  String? _appPin;
   Map<String, dynamic>? _user;
   bool _isLoading = true;
 
@@ -849,7 +867,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _chatSoundsEnabled = prefs.getBool('play_chat_sounds') ?? true;
         _appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
-        _appPin = prefs.getString('app_pin');
       });
     }
   }
@@ -926,9 +943,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               height: 56,
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: primary.withOpacity(0.3), width: 1.5),
+                border: Border.all(color: primary.withValues(alpha: 0.3), width: 1.5),
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: primary.withOpacity(0.05), blurRadius: 8)],
+                boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.05), blurRadius: 8)],
               ),
               child: TextField(
                 controller: ctrls[index],
@@ -945,7 +962,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           }
 
           return AlertDialog(
-            backgroundColor: Theme.of(context).colorScheme.background,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: Text(
               isChanging ? 'Change App Password' : 'Set App Password',
@@ -992,7 +1009,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setString('app_pin', enteredPin);
                     await prefs.setBool('app_lock_enabled', true);
-                    if (mounted) setState(() { _appLockEnabled = true; _appPin = enteredPin; });
+                    if (mounted) setState(() { _appLockEnabled = true; });
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('App password set! 🔒'), backgroundColor: primary),
@@ -1011,8 +1028,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    for (final c in [...pinControllers, ...confirmControllers]) c.dispose();
-    for (final f in [...pinFocusNodes, ...confirmFocusNodes]) f.dispose();
+    for (final c in [...pinControllers, ...confirmControllers]) {
+      c.dispose();
+    }
+    for (final f in [...pinFocusNodes, ...confirmFocusNodes]) {
+      f.dispose();
+    }
   }
 
   Future<void> _toggleAppLock(bool val) async {
@@ -1022,7 +1043,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('app_lock_enabled', false);
       await prefs.remove('app_pin');
-      if (mounted) setState(() { _appLockEnabled = false; _appPin = null; });
+      if (mounted) setState(() { _appLockEnabled = false; });
     }
   }
 
@@ -1058,7 +1079,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.3),
+              color: color.withValues(alpha: 0.3),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -1074,7 +1095,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1105,7 +1126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -1173,7 +1194,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -1191,7 +1212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                         title: Text('Push Notifications'),
                         subtitle: Text('Receive notifications for new messages'),
-                        activeColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
                         secondary: Icon(
                           Icons.notifications_active_rounded,
                           color: Color(0xFF8E717D),
@@ -1204,7 +1225,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleShowPreviews,
                         title: Text('Show Message Previews'),
                         subtitle: Text('Show message content in notification banners'),
-                        activeColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
                         secondary: Icon(
                           Icons.visibility_rounded,
                           color: Color(0xFF8E717D),
@@ -1217,7 +1238,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleChatSounds,
                         title: Text('Message Sounds'),
                         subtitle: Text('Play sound on sending and receiving messages'),
-                        activeColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
                         secondary: Icon(
                           Icons.music_note_rounded,
                           color: Color(0xFF8E717D),
@@ -1230,7 +1251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onChanged: _toggleAppLock,
                         title: Text('App Password'),
                         subtitle: Text(_appLockEnabled ? 'PIN lock is active • tap to change' : 'Lock app with a 4-digit PIN'),
-                        activeColor: Theme.of(context).colorScheme.primary,
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
                         secondary: Icon(
                           Icons.lock_rounded,
                           color: const Color(0xFF8E717D),
@@ -1270,7 +1291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -1308,7 +1329,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -1364,7 +1385,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   String _selectedAvatar = '💖';
-  bool _isSaving = false;
   final List<String> _avatars = [
     // Hearts
     '💖', '❤️', '💜', '💙', '💚', '💝', '💘', '💕',
@@ -1494,7 +1514,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showAvatarPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1538,7 +1558,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             color: isSelected ? Color(0xFFFFECEF) : Colors.white,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -1618,7 +1638,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 40, height: 4,
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8E717D).withOpacity(0.3),
+                      color: const Color(0xFF8E717D).withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1634,7 +1654,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                     hintText: 'Enter your name...',
-                    hintStyle: TextStyle(color: const Color(0xFF8E717D).withOpacity(0.5)),
+                    hintStyle: TextStyle(color: const Color(0xFF8E717D).withValues(alpha: 0.5)),
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1732,7 +1752,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1785,10 +1805,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.06), width: 1.5),
+                      border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
+                          color: Colors.black.withValues(alpha: 0.02),
                           blurRadius: 10,
                         ),
                       ],
@@ -1821,7 +1841,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         SizedBox(height: 14),
-                        Divider(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), thickness: 1),
+                        Divider(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08), thickness: 1),
                         SizedBox(height: 10),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1900,10 +1920,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.06), width: 1.5),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.06), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
           ),
         ],
@@ -1980,7 +2000,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Icon(
                               Icons.edit_rounded,
                               size: 14,
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
                             ),
                           ],
                         ),

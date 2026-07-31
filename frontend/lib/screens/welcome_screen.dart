@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
-import '../services/api_service.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -17,7 +16,7 @@ class WelcomeScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFFFFEAEE), // Soft rose pink
-              Theme.of(context).colorScheme.background, // Gentle white-pink
+              Theme.of(context).colorScheme.surface, // Gentle white-pink
             ],
           ),
         ),
@@ -44,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
                           child: Icon(
                             Icons.favorite_outline_rounded,
                             size: 180,
-                            color: Color(0xFFFFB3C6).withOpacity(0.5),
+                            color: Color(0xFFFFB3C6).withValues(alpha: 0.5),
                           ),
                         ),
                         // Square elegant border container matching the design
@@ -56,7 +55,7 @@ class WelcomeScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
+                                color: Colors.black.withValues(alpha: 0.06),
                                 blurRadius: 16,
                                 offset: const Offset(0, 8),
                               ),
@@ -140,7 +139,7 @@ class WelcomeScreen extends StatelessWidget {
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                         elevation: 4,
-                        shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
@@ -208,7 +207,7 @@ class WelcomeScreen extends StatelessWidget {
                           child: Icon(
                             Icons.favorite_border_rounded,
                             size: 32,
-                            color: Color(0xFFFFB3C6).withOpacity(0.4),
+                            color: Color(0xFFFFB3C6).withValues(alpha: 0.4),
                           ),
                         ),
                       ),

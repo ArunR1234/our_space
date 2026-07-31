@@ -177,7 +177,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFFFFEAEE), // Soft rose pink
-              Theme.of(context).colorScheme.background, // Gentle white-pink
+              Theme.of(context).colorScheme.surface, // Gentle white-pink
             ],
           ),
         ),
@@ -215,15 +215,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Container(
                   padding: EdgeInsets.all(24.0),
                   decoration: BoxDecoration(
-                    color: Color(0xFFFFECEF).withOpacity(0.9),
+                    color: Color(0xFFFFECEF).withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withValues(alpha: 0.4),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                         blurRadius: 24,
                         offset: const Offset(0, 12),
                       ),
@@ -276,7 +276,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             hintText: 'heart@ourspace.com',
                             hintStyle: TextStyle(color: Colors.black26),
                             filled: true,
-                            fillColor: Theme.of(context).colorScheme.background,
+                            fillColor: Theme.of(context).colorScheme.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -320,7 +320,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 6),
                                 ),
@@ -388,7 +388,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             decoration: BoxDecoration(
                               color: Color(0xFFE8F5E9),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green.withOpacity(0.3)),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                             ),
                             child: Text(
                               'Debug Reset Code: $_debugOtp',
@@ -419,7 +419,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             hintText: '123456',
                             hintStyle: TextStyle(color: Colors.black26),
                             filled: true,
-                            fillColor: Theme.of(context).colorScheme.background,
+                            fillColor: Theme.of(context).colorScheme.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -467,7 +467,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             hintText: '••••••••',
                             hintStyle: TextStyle(color: Colors.black26),
                             filled: true,
-                            fillColor: Theme.of(context).colorScheme.background,
+                            fillColor: Theme.of(context).colorScheme.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -515,7 +515,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             hintText: '••••••••',
                             hintStyle: TextStyle(color: Colors.black26),
                             filled: true,
-                            fillColor: Theme.of(context).colorScheme.background,
+                            fillColor: Theme.of(context).colorScheme.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
@@ -559,7 +559,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                   blurRadius: 12,
                                   offset: const Offset(0, 6),
                                 ),

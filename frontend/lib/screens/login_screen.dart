@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
             end: Alignment.bottomCenter,
             colors: [
               Color(0xFFFFEAEE), // Soft rose pink
-              Theme.of(context).colorScheme.background, // Gentle white-pink
+              Theme.of(context).colorScheme.surface, // Gentle white-pink
             ],
           ),
         ),
@@ -112,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Icon(
                   Icons.favorite_rounded,
                   size: 100,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -151,15 +151,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: EdgeInsets.all(24.0),
                       decoration: BoxDecoration(
-                        color: Color(0xFFFFECEF).withOpacity(0.9),
+                        color: Color(0xFFFFECEF).withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.4),
+                          color: Colors.white.withValues(alpha: 0.4),
                           width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                             blurRadius: 24,
                             offset: const Offset(0, 12),
                           ),
@@ -213,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintText: 'heart@ourspace.com',
                               hintStyle: TextStyle(color: Colors.black26),
                               filled: true,
-                              fillColor: Theme.of(context).colorScheme.background,
+                              fillColor: Theme.of(context).colorScheme.surface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
@@ -265,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               hintText: '••••••••',
                               hintStyle: TextStyle(color: Colors.black26),
                               filled: true,
-                              fillColor: Theme.of(context).colorScheme.background,
+                              fillColor: Theme.of(context).colorScheme.surface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
@@ -333,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderRadius: BorderRadius.circular(30),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                     blurRadius: 12,
                                     offset: const Offset(0, 6),
                                   ),
