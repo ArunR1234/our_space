@@ -3,28 +3,27 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class PartnerInvitationMail extends Mailable
+class NewDeviceLoginMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new message instance.
-     */
-    public $senderName;
+    public string $deviceName;
+    public string $ipAddress;
+    public string $loginTime;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($senderName)
+    public function __construct(string $deviceName, string $ipAddress, string $loginTime)
     {
-        $this->senderName = $senderName;
+        $this->deviceName = $deviceName;
+        $this->ipAddress = $ipAddress;
+        $this->loginTime = $loginTime;
     }
 
     /**
@@ -33,7 +32,7 @@ class PartnerInvitationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "{$this->senderName} invited you to join Our Space",
+            subject: 'Security Alert: New Device Login to Our Space',
         );
     }
 
@@ -43,8 +42,13 @@ class PartnerInvitationMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            text: 'emails.partner_invitation_text',
-            with: ['senderName' => $this->senderName],
+            view: 'emails.new_device_login',
+            text: 'emails.new_device_login_text',
+            with: [
+                'deviceName' => $this->deviceName,
+                'ipAddress' => $this->ipAddress,
+                'loginTime' => $this->loginTime,
+            ],
         );
     }
 
@@ -56,15 +60,12 @@ class PartnerInvitationMail extends Mailable
         return $this->withSymfonyMessage(function (\Symfony\Component\Mime\Email $message) {
             $message->getHeaders()
                 ->addTextHeader('X-Mailer', 'Our Space Mailer')
-                ->addTextHeader('Precedence', 'bulk')
                 ->addTextHeader('X-Auto-Response-Suppress', 'OOF, AutoReply');
         });
     }
 
     /**
      * Get the attachments for the message.
-     *
-     * @return array<int, Attachment>
      */
     public function attachments(): array
     {

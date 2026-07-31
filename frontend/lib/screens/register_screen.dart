@@ -14,15 +14,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _otpController = TextEditingController();
   
   bool _isLoading = false;
   String? _errorMessage;
+  String? _successMessage;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+
+  bool _isOtpSent = false;
+  bool _isEmailVerified = false;
+  bool _isSendingOtp = false;
+  bool _isVerifyingOtp = false;
+
+  Future<void> _sendOtp() async {
+    setState(() {
+      _errorMessage = null;
+      _successMessage = null;
+      _isSendingOtp = true;
+    });
+
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email address is required to send OTP.';
+        _isSendingOtp = false;
+      });
+      return;
+    }
+
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() {
+        _errorMessage = 'Please enter a valid email address.';
+        _isSendingOtp = false;
+      });
+      return;
+    }
+
+    final result = await ApiService.instance.sendSignupOtp(email);
+
+    if (mounted) {
+      setState(() {
+        _isSendingOtp = false;
+      });
+
+      if (result['success']) {
+        setState(() {
+          _isOtpSent = true;
+          _successMessage = result['message'];
+        });
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
+      }
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    setState(() {
+      _errorMessage = null;
+      _successMessage = null;
+      _isVerifyingOtp = true;
+    });
+
+    final email = _emailController.text.trim();
+    final otp = _otpController.text.trim();
+
+    if (otp.length != 6) {
+      setState(() {
+        _errorMessage = 'Please enter a 6-digit OTP code.';
+        _isVerifyingOtp = false;
+      });
+      return;
+    }
+
+    final result = await ApiService.instance.verifySignupOtp(email, otp);
+
+    if (mounted) {
+      setState(() {
+        _isVerifyingOtp = false;
+      });
+
+      if (result['success']) {
+        setState(() {
+          _isEmailVerified = true;
+          _successMessage = result['message'];
+        });
+      } else {
+        setState(() {
+          _errorMessage = result['message'];
+        });
+      }
+    }
+  }
 
   Future<void> _handleRegister() async {
     setState(() {
       _errorMessage = null;
+      _successMessage = null;
     });
 
     final name = _nameController.text.trim();
@@ -252,12 +343,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        readOnly: _isEmailVerified,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.mail_outline_rounded, color: Color(0xFF8E717D)),
+                          suffixIcon: _isEmailVerified
+                              ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                              : null,
                           hintText: 'evelyn@ourspace.com',
                           hintStyle: TextStyle(color: Colors.black26),
                           filled: true,
-                          fillColor: Theme.of(context).colorScheme.surface,
+                          fillColor: _isEmailVerified
+                              ? Theme.of(context).colorScheme.surface.withValues(alpha: 0.6)
+                              : Theme.of(context).colorScheme.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -274,6 +371,185 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       
+                      if (_isEmailVerified) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.verified_user_rounded, color: Colors.green, size: 16),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Email Verified',
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _isEmailVerified = false;
+                                    _isOtpSent = false;
+                                    _otpController.clear();
+                                    _passwordController.clear();
+                                    _confirmPasswordController.clear();
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  foregroundColor: Theme.of(context).colorScheme.primary,
+                                ),
+                                child: const Text(
+                                  'Change Email',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        if (!_isOtpSent) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: _isSendingOtp ? null : _sendOtp,
+                                icon: _isSendingOtp
+                                    ? SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                                        ),
+                                      )
+                                    : const Icon(Icons.send_rounded, size: 14),
+                                label: Text(_isSendingOtp ? 'Sending OTP...' : 'Send Verification OTP'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  foregroundColor: Theme.of(context).colorScheme.primary,
+                                  textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Verification Code (OTP)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF8E717D),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _otpController,
+                                      keyboardType: TextInputType.number,
+                                      maxLength: 6,
+                                      decoration: InputDecoration(
+                                        counterText: '',
+                                        prefixIcon: const Icon(Icons.vpn_key_outlined, color: Color(0xFF8E717D)),
+                                        hintText: '123456',
+                                        hintStyle: const TextStyle(color: Colors.black26),
+                                        filled: true,
+                                        fillColor: Theme.of(context).colorScheme.surface,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ElevatedButton(
+                                    onPressed: _isVerifyingOtp ? null : _verifyOtp,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: _isVerifyingOtp
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : const Text('Verify'),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isOtpSent = false;
+                                        _otpController.clear();
+                                      });
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      foregroundColor: const Color(0xFF8E717D),
+                                    ),
+                                    child: const Text('Change Email', style: TextStyle(fontSize: 12)),
+                                  ),
+                                  TextButton(
+                                    onPressed: _isSendingOtp ? null : _sendOtp,
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      foregroundColor: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    child: Text(
+                                      _isSendingOtp ? 'Resending...' : 'Resend Code',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                      
                       SizedBox(height: 16),
                       
                       // Password
@@ -282,23 +558,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF8E717D),
+                          color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black38,
                         ),
                       ),
                       SizedBox(height: 6),
                       TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        readOnly: !_isEmailVerified,
                         decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.lock_outline_rounded, color: Color(0xFF8E717D)),
+                          prefixIcon: Icon(Icons.lock_outline_rounded, color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black26),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Color(0xFF8E717D),
+                              color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black26,
                             ),
-                            onPressed: () {
+                            onPressed: !_isEmailVerified ? null : () {
                               setState(() {
                                 _obscurePassword = !_obscurePassword;
                               });
@@ -307,7 +584,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           hintText: '••••••••',
                           hintStyle: TextStyle(color: Colors.black26),
                           filled: true,
-                          fillColor: Theme.of(context).colorScheme.surface,
+                          fillColor: _isEmailVerified 
+                              ? Theme.of(context).colorScheme.surface
+                              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -332,23 +611,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF8E717D),
+                          color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black38,
                         ),
                       ),
                       SizedBox(height: 6),
                       TextField(
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
+                        readOnly: !_isEmailVerified,
                         decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.shield_outlined, color: Color(0xFF8E717D)),
+                          prefixIcon: Icon(Icons.shield_outlined, color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black26),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirmPassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Color(0xFF8E717D),
+                              color: _isEmailVerified ? Color(0xFF8E717D) : Colors.black26,
                             ),
-                            onPressed: () {
+                            onPressed: !_isEmailVerified ? null : () {
                               setState(() {
                                 _obscureConfirmPassword = !_obscureConfirmPassword;
                               });
@@ -357,7 +637,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           hintText: '••••••••',
                           hintStyle: TextStyle(color: Colors.black26),
                           filled: true,
-                          fillColor: Theme.of(context).colorScheme.surface,
+                          fillColor: _isEmailVerified 
+                              ? Theme.of(context).colorScheme.surface
+                              : Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide.none,
@@ -387,10 +669,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         SizedBox(height: 12),
                       ],
+
+                      if (_successMessage != null) ...[
+                        Text(
+                          _successMessage!,
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 12),
+                      ],
                       
                       // Submit Button
                       Opacity(
-                        opacity: _isLoading ? 0.6 : 1.0,
+                        opacity: (_isLoading || !_isEmailVerified) ? 0.6 : 1.0,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -411,7 +706,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ],
                           ),
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleRegister,
+                            onPressed: (_isLoading || !_isEmailVerified) ? null : _handleRegister,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,

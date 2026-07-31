@@ -416,10 +416,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
     // Listen to foreground FCM push notifications and show local notification banners
     try {
-      _fcmMessageSubscription = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _fcmMessageSubscription = FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
         final notification = message.notification;
         if (notification != null && _currentIndex != 1) {
+          final prefs = await SharedPreferences.getInstance();
+          final bool enabled = prefs.getBool('notifications_enabled') ?? true;
+          if (!enabled) return;
+
+          final messageIdStr = message.data['message_id'];
+          final messageId = messageIdStr != null ? int.tryParse(messageIdStr) : null;
+          final notificationId = messageId ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
           _showLocalNotification(
+            notificationId,
             notification.title ?? 'New Message',
             notification.body ?? '',
           );
@@ -432,7 +440,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
   }
 
-  Future<void> _showLocalNotification(String title, String body) async {
+  Future<void> _showLocalNotification(int id, String title, String body) async {
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
       'relationship_chats',
@@ -449,7 +457,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
 
     await _localNotificationsPlugin.show(
-      0,
+      id,
       title,
       body,
       notificationDetails,
@@ -555,6 +563,14 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   Future<void> _setupFcmTokenRegistration() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+
+      if (!notificationsEnabled) {
+        await ApiService.instance.updateFcmToken(null);
+        return;
+      }
+
       final messaging = FirebaseMessaging.instance;
       final String? token = await messaging.getToken();
       if (token != null) {
@@ -566,7 +582,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
       _fcmTokenRefreshSubscription = messaging.onTokenRefresh.listen((newToken) async {
         try {
-          await ApiService.instance.updateFcmToken(newToken);
+          final prefsInner = await SharedPreferences.getInstance();
+          final bool enabled = prefsInner.getBool('notifications_enabled') ?? true;
+          if (enabled) {
+            await ApiService.instance.updateFcmToken(newToken);
+          }
         } catch (e) {
           if (kDebugMode) {
             print('Error updating refreshed FCM token: $e');
@@ -580,16 +600,22 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
   }
 
-  void _onGlobalMessageSentReceived(Map<String, dynamic> data) {
+  void _onGlobalMessageSentReceived(Map<String, dynamic> data) async {
     if (_globalUserId == null) return;
     final int senderId = data['sender_id'] ?? 0;
     
     // Only notify if the message is from our partner and we are not currently on the chat tab
     if (senderId != _globalUserId && _currentIndex != 1) {
+      final prefs = await SharedPreferences.getInstance();
+      final bool enabled = prefs.getBool('notifications_enabled') ?? true;
+      if (!enabled) return;
+
       final String senderName = data['sender']?['name'] ?? 'Your Partner';
       final String content = data['content'] ?? 'Sent a message';
+      final int? messageId = data['id'];
+      final notificationId = messageId ?? DateTime.now().millisecondsSinceEpoch.remainder(100000);
       
-      _showLocalNotification(senderName, content);
+      _showLocalNotification(notificationId, senderName, content);
     }
   }
 
@@ -865,9 +891,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
+        _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
         _chatSoundsEnabled = prefs.getBool('play_chat_sounds') ?? true;
         _appLockEnabled = prefs.getBool('app_lock_enabled') ?? false;
       });
+    }
+  }
+
+  Future<void> _toggleNotifications(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', val);
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = val;
+      });
+    }
+    try {
+      if (val) {
+        final messaging = FirebaseMessaging.instance;
+        final String? token = await messaging.getToken();
+        if (token != null) {
+          await ApiService.instance.updateFcmToken(token);
+        }
+      } else {
+        await ApiService.instance.updateFcmToken(null);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error toggling notifications: $e');
+      }
     }
   }
 
@@ -879,6 +931,258 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _chatSoundsEnabled = val;
       });
     }
+  }
+
+  void _showDevicesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateSheet) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFECEF),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
+              child: FutureBuilder<List<dynamic>>(
+                future: ApiService.instance.getDevices(),
+                builder: (context, snapshot) {
+                  Widget body;
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    body = const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  } else if (snapshot.hasError) {
+                    body = Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Text(
+                          'Failed to load devices: ${snapshot.error}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    );
+                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    body = const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('No active devices found.'),
+                      ),
+                    );
+                  } else {
+                    final devices = snapshot.data!;
+                    final currentDevice = devices.firstWhere((d) => d['is_current'] == true, orElse: () => null);
+                    final otherDevices = devices.where((d) => d['is_current'] != true).toList();
+
+                    body = Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (currentDevice != null) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                            child: Text(
+                              'CURRENT SESSION',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E717D), letterSpacing: 0.8),
+                            ),
+                          ),
+                          Card(
+                            margin: const EdgeInsets.symmetric(vertical: 4.0),
+                            color: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(color: Color(0xFFFFECEF), shape: BoxShape.circle),
+                                child: Icon(Icons.phone_android_rounded, color: Theme.of(context).colorScheme.primary),
+                              ),
+                              title: Text(currentDevice['name'] ?? 'Unknown Device', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: const Text('Active now', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'OTHER ACTIVE SESSIONS (${otherDevices.length})',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF8E717D), letterSpacing: 0.8),
+                              ),
+                              if (otherDevices.isNotEmpty)
+                                TextButton(
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        backgroundColor: const Color(0xFFFFECEF),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: const Text('Log out from others?', style: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.bold)),
+                                        content: const Text('This will log you out from all other devices.'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E717D)))),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx, true),
+                                            child: Text('Log out', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      try {
+                                        await ApiService.instance.logoutOtherDevices();
+                                        setStateSheet(() {});
+                                      } catch (e) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Error logging out: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  child: Text(
+                                    'Log out all others',
+                                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (otherDevices.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: Center(
+                              child: Text(
+                                'No other active devices',
+                                style: TextStyle(color: Color(0xFF8E717D), fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: MediaQuery.of(context).size.height * 0.4,
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: otherDevices.length,
+                              itemBuilder: (ctx, index) {
+                                final device = otherDevices[index];
+                                final lastActive = device['last_used_at'] != null
+                                    ? DateTime.parse(device['last_used_at']).toLocal()
+                                    : null;
+                                final lastActiveStr = lastActive != null
+                                    ? 'Active: ${DateFormat('MMM d, h:mm a').format(lastActive)}'
+                                    : 'Active time unknown';
+
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(vertical: 6.0),
+                                  color: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: ListTile(
+                                    leading: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: const BoxDecoration(color: Color(0xFFFFECEF), shape: BoxShape.circle),
+                                      child: const Icon(Icons.devices_other_rounded, color: Color(0xFF8E717D)),
+                                    ),
+                                    title: Text(device['name'] ?? 'Unknown Device', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    subtitle: Text(lastActiveStr, style: const TextStyle(fontSize: 11, color: Color(0xFF8E717D))),
+                                    trailing: IconButton(
+                                      icon: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.primary),
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            backgroundColor: const Color(0xFFFFECEF),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                            title: const Text('Log out device?', style: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.bold)),
+                                            content: Text('Are you sure you want to log out from ${device['name'] ?? 'this device'}?'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E717D)))),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: Text('Log out', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          try {
+                                            await ApiService.instance.logoutDevice(device['id']);
+                                            setStateSheet(() {});
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Error logging out: $e')),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40, height: 4,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8E717D).withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Logged-in Devices',
+                        style: TextStyle(fontFamily: 'Georgia', color: Color(0xFF2C1820), fontWeight: FontWeight.bold, fontSize: 20),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'These are the phones, tablets, or computers currently logged into your account. You can log out of any device to protect your account security.',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF8E717D), height: 1.4),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      body,
+                    ],
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _loadUserData() async {
@@ -1205,11 +1509,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // Notifications switch
                       SwitchListTile(
                         value: _notificationsEnabled,
-                        onChanged: (val) {
-                          setState(() {
-                            _notificationsEnabled = val;
-                          });
-                        },
+                        onChanged: _toggleNotifications,
                         title: Text('Push Notifications'),
                         subtitle: Text('Receive notifications for new messages'),
                         activeThumbColor: Theme.of(context).colorScheme.primary,
@@ -1268,6 +1568,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           trailing: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: const Color(0xFF8E717D)),
                         ),
                       ],
+                      Divider(height: 1),
+                      ListTile(
+                        onTap: _showDevicesBottomSheet,
+                        leading: const Icon(Icons.devices_rounded, color: Color(0xFF8E717D)),
+                        title: const Text('Logged-in Devices'),
+                        subtitle: const Text('Manage your active sessions'),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF8E717D)),
+                      ),
                     ],
                   ),
                 ),

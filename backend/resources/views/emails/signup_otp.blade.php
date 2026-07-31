@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Reset – Our Space</title>
+  <title>Email Verification – Our Space</title>
   <style>
     body { margin: 0; padding: 0; background: #FFF5F7; font-family: 'Georgia', serif; }
     .wrapper { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 24px rgba(181,0,63,0.08); }
@@ -37,11 +37,11 @@
     <div class="header">
       <div class="heart">💕</div>
       <h1>Our Space</h1>
-      <p>Password Reset Request</p>
+      <p>Email Verification Request</p>
     </div>
     <div class="body">
-      <p class="greeting">Hello, My Love 💌</p>
-      <p class="sub">Use the code below to reset your password. It expires in <strong>15 minutes</strong>.</p>
+      <p class="greeting">Welcome to Our Space 💌</p>
+      <p class="sub">Use the code below to verify your email and complete your sign up. It expires in <strong>15 minutes</strong>.</p>
       <div class="otp-box">
         <span>{{ $otp }}</span>
       </div>

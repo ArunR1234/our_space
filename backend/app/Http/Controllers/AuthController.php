@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Relationship;
 use App\Mail\OtpMail;
+use App\Mail\SignupOtpMail;
 use App\Mail\PartnerInvitationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -26,11 +27,34 @@ class AuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Verify email has been verified via OTP
+        $verifiedRecord = \Illuminate\Support\Facades\DB::table('signup_otps')
+            ->where('email', $request->email)
+            ->whereNotNull('verified_at')
+            ->first();
+
+        if (!$verifiedRecord) {
+            return response()->json([
+                'errors' => ['email' => ['Email verification is required before signing up.']]
+            ], 422);
+        }
+
+        // Check if the verification has expired (e.g. 15 minutes limit)
+        if (Carbon::parse($verifiedRecord->verified_at)->addMinutes(15)->isPast()) {
+            \Illuminate\Support\Facades\DB::table('signup_otps')->where('email', $request->email)->delete();
+            return response()->json([
+                'errors' => ['email' => ['The verification code has expired. Please verify your email again.']]
+            ], 422);
+        }
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        // Delete the signup OTP record
+        \Illuminate\Support\Facades\DB::table('signup_otps')->where('email', $request->email)->delete();
 
         // Auto-pair if someone invited this email
         $relationship = Relationship::where('pending_partner_email', $user->email)->first();
@@ -50,6 +74,92 @@ class AuthController extends Controller
             'user' => $user,
             'relationship' => $user->relationship,
             'partner' => $user->partner(),
+        ]);
+    }
+
+    public function sendSignupOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email|max:255|unique:users,email',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => $validator->errors()->first('email') ?: 'The email is invalid or already registered.'
+            ], 422);
+        }
+
+        $email = $request->email;
+        $otp = (string) mt_rand(100000, 999999);
+
+        \Illuminate\Support\Facades\DB::table('signup_otps')->updateOrInsert(
+            ['email' => $email],
+            [
+                'token' => Hash::make($otp),
+                'verified_at' => null,
+                'created_at' => Carbon::now()
+            ]
+        );
+
+        // Send OTP email
+        try {
+            Mail::to($email)->send(new SignupOtpMail($otp));
+        } catch (\Exception $e) {
+            logger()->error("Failed to send signup OTP email to {$email}: " . $e->getMessage());
+            if (!config('app.debug')) {
+                return response()->json(['message' => 'Failed to send verification email. Please try again.'], 500);
+            }
+        }
+
+        logger()->info("Signup OTP for {$email} is: {$otp}");
+
+        $response = [
+            'message' => 'Verification code sent successfully.',
+        ];
+
+        if (config('app.debug')) {
+            $response['debug_otp'] = $otp;
+        }
+
+        return response()->json($response);
+    }
+
+    public function verifySignupOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|string|email',
+            'otp' => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first()], 422);
+        }
+
+        $record = \Illuminate\Support\Facades\DB::table('signup_otps')
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$record) {
+            return response()->json(['message' => 'No active verification request found.'], 422);
+        }
+
+        if (Carbon::parse($record->created_at)->addMinutes(15)->isPast()) {
+            \Illuminate\Support\Facades\DB::table('signup_otps')->where('email', $request->email)->delete();
+            return response()->json(['message' => 'The verification code has expired. Please request a new one.'], 422);
+        }
+
+        if (!Hash::check($request->otp, $record->token)) {
+            return response()->json(['message' => 'Invalid verification code.'], 422);
+        }
+
+        \Illuminate\Support\Facades\DB::table('signup_otps')
+            ->where('email', $request->email)
+            ->update([
+                'verified_at' => Carbon::now()
+            ]);
+
+        return response()->json([
+            'message' => 'Email verified successfully.'
         ]);
     }
 
@@ -76,9 +186,18 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $deviceName = $request->input('device_name', 'Unknown Device');
+        $token = $user->createToken($deviceName)->plainTextToken;
         $relationship = $user->relationship;
         $partner = $user->partner();
+
+        try {
+            $ipAddress = $request->ip() ?? 'Unknown IP';
+            $loginTime = Carbon::now('Asia/Kolkata')->format('M j, Y h:i A');
+            Mail::to($user->email)->send(new \App\Mail\NewDeviceLoginMail($deviceName, $ipAddress, $loginTime));
+        } catch (\Exception $e) {
+            logger()->error("Failed to send new device login email to {$user->email}: " . $e->getMessage());
+        }
 
         return response()->json([
             'access_token' => $token,
@@ -278,7 +397,7 @@ class AuthController extends Controller
     public function updateFcmToken(Request $request)
     {
         $request->validate([
-            'fcm_token' => 'required|string',
+            'fcm_token' => 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -307,6 +426,54 @@ class AuthController extends Controller
             'status' => 'success',
             'user' => $user,
             'message' => 'Notification preferences updated successfully!'
+        ]);
+    }
+
+    public function getDevices(Request $request)
+    {
+        $user = $request->user();
+        $currentTokenId = $user->currentAccessToken()->id;
+
+        $devices = $user->tokens->map(function ($token) use ($currentTokenId) {
+            return [
+                'id' => $token->id,
+                'name' => $token->name,
+                'last_used_at' => $token->last_used_at ? $token->last_used_at->toIso8601String() : null,
+                'created_at' => $token->created_at ? $token->created_at->toIso8601String() : null,
+                'is_current' => $token->id === $currentTokenId,
+            ];
+        });
+
+        return response()->json($devices);
+    }
+
+    public function logoutDevice(Request $request, $id)
+    {
+        $user = $request->user();
+        $token = $user->tokens()->where('id', $id)->first();
+
+        if (!$token) {
+            return response()->json(['message' => 'Device session not found.'], 404);
+        }
+
+        $token->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logged out from device successfully.'
+        ]);
+    }
+
+    public function logoutOtherDevices(Request $request)
+    {
+        $user = $request->user();
+        $currentTokenId = $user->currentAccessToken()->id;
+
+        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logged out from all other devices successfully.'
         ]);
     }
 }

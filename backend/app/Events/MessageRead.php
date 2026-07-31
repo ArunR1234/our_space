@@ -34,6 +34,7 @@ class MessageRead implements ShouldBroadcastNow
             'id' => $this->message->id,
             'relationship_id' => $this->message->relationship_id,
             'is_read' => true,
+            'updated_at' => $this->message->updated_at ? $this->message->updated_at->toIso8601String() : now()->toIso8601String(),
         ];
     }
 }

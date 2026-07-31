@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
@@ -38,6 +39,13 @@ class _ChatScreenState extends State<ChatScreen> {
   int _unreadCount = 0;
   int? _firstUnreadChronoIndex;
   bool _playSounds = true;
+  Message? _activeReactionMessage;
+  final _searchController = TextEditingController();
+  bool _isSearching = false;
+  String _searchQuery = '';
+  int? _highlightedMessageId;
+  List<int> _searchResultIndices = [];
+  int _currentSearchResultIndex = -1;
 
   @override
   void initState() {
@@ -97,14 +105,13 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _messageFocusNode.dispose();
+    _searchController.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
 
   void _onFocusChange() {
-    if (_messageFocusNode.hasFocus) {
-      _scrollToBottom();
-    }
+    // Preserves scroll position when keyboard opens/closes
   }
 
   void _onTextChanged() {
@@ -389,10 +396,15 @@ class _ChatScreenState extends State<ChatScreen> {
   void _onMessageReadReceived(Map<String, dynamic> data) {
     if (mounted) {
       final messageId = data['id'];
+      final updatedAtStr = data['updated_at'];
+      final updatedAt = updatedAtStr != null ? DateTime.parse(updatedAtStr) : DateTime.now();
       final index = _messages.indexWhere((msg) => msg.id == messageId);
       if (index != -1) {
         setState(() {
-          _messages[index] = _messages[index].copyWith(isRead: true);
+          _messages[index] = _messages[index].copyWith(
+            isRead: true,
+            updatedAt: updatedAt,
+          );
         });
       }
     }
@@ -530,177 +542,222 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showReactionSheet(Message message) {
-    _messageFocusNode.unfocus();
+    setState(() {
+      _activeReactionMessage = message;
+    });
+  }
+
+  Widget _buildReactionOverlay() {
+    final message = _activeReactionMessage!;
     final emojis = ['❤️', '😂', '😮', '😢', '👍', '🙏', '🔥', '🎉'];
     final bool isMe = message.senderId == _currentUserId;
     final String? myCurrentReaction = isMe ? message.senderReaction : message.receiverReaction;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Color(0xFFFFECEF),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'React to message',
-              style: TextStyle(
-                fontFamily: 'Georgia',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C1820),
-              ),
-              textAlign: TextAlign.center,
+    return Stack(
+      children: [
+        // Backdrop tap area to dismiss
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _activeReactionMessage = null;
+            });
+          },
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.15),
             ),
-            SizedBox(height: 20),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
+          ),
+        ),
+        // Floating menu card
+        Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20.0),
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFECEF).withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.4),
+                width: 1.5,
               ),
-              itemCount: emojis.length + 1,
-              itemBuilder: (context, index) {
-                if (index == emojis.length) {
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showFullEmojiPicker(message);
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2), width: 1.5),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.add_rounded,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                final emoji = emojis[index];
-                return GestureDetector(
-                  onTap: () async {
-                    Navigator.pop(context);
-                    
-                    final isRemoving = myCurrentReaction == emoji;
-                    // Optimistic update
-                    setState(() {
-                      _messages = _messages.map((msg) {
-                        if (msg.id == message.id) {
-                          if (isMe) {
-                            return msg.copyWith(
-                              senderReaction: isRemoving ? null : emoji,
-                              clearSenderReaction: isRemoving,
-                            );
-                          } else {
-                            return msg.copyWith(
-                              receiverReaction: isRemoving ? null : emoji,
-                              clearReceiverReaction: isRemoving,
-                            );
-                          }
-                        }
-                        return msg;
-                      }).toList();
-                    });
-
-                    try {
-                      await ApiService.instance.reactToMessage(message.id, isRemoving ? null : emoji);
-                    } catch (e) {
-                      print('Error reacting: $e');
-                    }
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        emoji,
-                        style: TextStyle(fontSize: 22),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            if (myCurrentReaction != null) ...[
-              SizedBox(height: 16),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  setState(() {
-                    _messages = _messages.map((msg) {
-                      if (msg.id == message.id) {
-                        if (isMe) {
-                          return msg.copyWith(clearSenderReaction: true);
-                        } else {
-                          return msg.copyWith(clearReceiverReaction: true);
-                        }
-                      }
-                      return msg;
-                    }).toList();
-                  });
-
-                  try {
-                    await ApiService.instance.reactToMessage(message.id, null);
-                  } catch (e) {
-                    print('Error removing reaction: $e');
-                  }
-                },
-                child: Text(
-                  'Remove Reaction',
-                  style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-              ),
-            ],
-            if (message.senderId == _currentUserId) ...[
-              Divider(color: Color(0xFFF1D6DB), height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _startEditingMessage(message);
-                    },
-                    icon: Icon(Icons.edit_rounded, color: Theme.of(context).colorScheme.primary, size: 18),
-                    label: Text('Edit', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.bold)),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'React to message',
+                  style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2C1820),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _confirmUnsendMessage(message);
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 5,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                  ),
+                  itemCount: emojis.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == emojis.length) {
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _activeReactionMessage = null;
+                          });
+                          _showFullEmojiPicker(message);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.add_rounded,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    final emoji = emojis[index];
+                    return GestureDetector(
+                      onTap: () async {
+                        setState(() {
+                          _activeReactionMessage = null;
+                        });
+                        
+                        final isRemoving = myCurrentReaction == emoji;
+                        // Optimistic update
+                        setState(() {
+                          _messages = _messages.map((msg) {
+                            if (msg.id == message.id) {
+                              if (isMe) {
+                                return msg.copyWith(
+                                  senderReaction: isRemoving ? null : emoji,
+                                  clearSenderReaction: isRemoving,
+                                );
+                              } else {
+                                return msg.copyWith(
+                                  receiverReaction: isRemoving ? null : emoji,
+                                  clearReceiverReaction: isRemoving,
+                                );
+                              }
+                            }
+                            return msg;
+                          }).toList();
+                        });
+
+                        try {
+                          await ApiService.instance.reactToMessage(message.id, isRemoving ? null : emoji);
+                        } catch (e) {
+                          print('Error reacting: $e');
+                        }
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 22),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                if (myCurrentReaction != null) ...[
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () async {
+                      setState(() {
+                        _activeReactionMessage = null;
+                      });
+                      setState(() {
+                        _messages = _messages.map((msg) {
+                          if (msg.id == message.id) {
+                            if (isMe) {
+                              return msg.copyWith(clearSenderReaction: true);
+                            } else {
+                              return msg.copyWith(clearReceiverReaction: true);
+                            }
+                          }
+                          return msg;
+                        }).toList();
+                      });
+
+                      try {
+                        await ApiService.instance.reactToMessage(message.id, null);
+                      } catch (e) {
+                        print('Error removing reaction: $e');
+                      }
                     },
-                    icon: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 18),
-                    label: Text('Unsend', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Remove Reaction',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
-              ),
-            ],
-            SizedBox(height: 12),
-          ],
+                if (message.senderId == _currentUserId) ...[
+                  const Divider(color: Color(0xFFF1D6DB), height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          _startEditingMessage(message);
+                        },
+                        icon: Icon(Icons.edit_rounded, color: Theme.of(context).colorScheme.primary, size: 18),
+                        label: const Text('Edit', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.bold)),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          _confirmUnsendMessage(message);
+                        },
+                        icon: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.primary, size: 18),
+                        label: Text('Unsend', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -734,6 +791,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   bool _shouldShowHeader(int index) {
+    if (_isSearching && _searchQuery.isNotEmpty) return false;
     if (index == 0) {
       return true;
     }
@@ -778,104 +836,193 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0xFFFFECEF),
-              child: Icon(Icons.person_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _partner != null ? _partner!['name'] : 'My Love',
-                    style: TextStyle(
-                      fontFamily: 'Georgia',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C1820),
+      appBar: _isSearching
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back_rounded, color: Theme.of(context).colorScheme.primary),
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchQuery = '';
+                    _searchController.clear();
+                    _searchResultIndices = [];
+                    _currentSearchResultIndex = -1;
+                    _highlightedMessageId = null;
+                  });
+                },
+              ),
+              title: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(fontSize: 16, color: Color(0xFF2C1820)),
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Search messages...',
+                  hintStyle: TextStyle(color: Color(0xFF8E717D)),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: (val) {
+                  _performSearch(val);
+                },
+                onChanged: (val) {
+                  if (_searchResultIndices.isNotEmpty) {
+                    setState(() {
+                      _searchResultIndices = [];
+                      _currentSearchResultIndex = -1;
+                      _highlightedMessageId = null;
+                    });
+                  }
+                },
+              ),
+              actions: [
+                if (_searchResultIndices.isNotEmpty) ...[
+                  Center(
+                    child: Text(
+                      '${_currentSearchResultIndex + 1}/${_searchResultIndices.length}',
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  _isPartnerTyping
-                      ? Text(
-                          'typing...',
+                  IconButton(
+                    icon: Icon(Icons.keyboard_arrow_up_rounded, color: Theme.of(context).colorScheme.primary),
+                    onPressed: _searchPrev,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.keyboard_arrow_down_rounded, color: Theme.of(context).colorScheme.primary),
+                    onPressed: _searchNext,
+                  ),
+                ],
+                IconButton(
+                  icon: Icon(Icons.close_rounded, color: Theme.of(context).colorScheme.primary),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                      _searchResultIndices = [];
+                      _currentSearchResultIndex = -1;
+                      _highlightedMessageId = null;
+                    });
+                  },
+                ),
+              ],
+            )
+          : AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0.5,
+              title: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Color(0xFFFFECEF),
+                    child: Icon(Icons.person_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _partner != null ? _partner!['name'] : 'My Love',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Theme.of(context).colorScheme.primary,
-                            fontStyle: FontStyle.italic,
+                            fontFamily: 'Georgia',
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF2C1820),
                           ),
-                        )
-                      : Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: _isPartnerOnline ? Color(0xFF10B981) : Color(0xFF8E717D),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              _isPartnerOnline ? 'Online' : 'Offline',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: _isPartnerOnline ? Color(0xFF10B981) : Color(0xFF8E717D),
-                              ),
-                            ),
-                          ],
                         ),
+                        _isPartnerTyping
+                            ? Text(
+                                'typing...',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: _isPartnerOnline ? Color(0xFF10B981) : Color(0xFF9CA3AF),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    _isPartnerOnline ? 'Online' : 'Offline',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: _isPartnerOnline ? Color(0xFF10B981) : Color(0xFF8E717D),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: Icon(Icons.settings_rounded, color: Theme.of(context).colorScheme.primary),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            color: Color(0xFFFFECEF),
-            onSelected: (value) {
-              if (value == 'clear_chat') {
-                _confirmClearChatHistory();
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              PopupMenuItem<String>(
-                value: 'clear_chat',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_sweep_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
-                    SizedBox(width: 8),
-                    Text('Clear Chat History', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600)),
+              actions: [
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.settings_rounded, color: Theme.of(context).colorScheme.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  color: Color(0xFFFFECEF),
+                  onSelected: (value) {
+                    if (value == 'clear_chat') {
+                      _confirmClearChatHistory();
+                    } else if (value == 'search_chat') {
+                      setState(() {
+                        _isSearching = true;
+                      });
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem<String>(
+                      value: 'search_chat',
+                      child: Row(
+                        children: [
+                          Icon(Icons.search_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                          SizedBox(width: 8),
+                          Text('Search Messages', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'clear_chat',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_sweep_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                          SizedBox(width: 8),
+                          Text('Clear Chat History', style: TextStyle(color: Color(0xFF2C1820), fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
       body: _isLoading
           ? Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
               ),
             )
-          : Column(
+          : Stack(
               children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      ListView.builder(
+                Column(
+                  children: [
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          ListView.builder(
                         controller: _scrollController,
                         reverse: true,
                         padding: EdgeInsets.only(
@@ -887,7 +1034,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           final message = _messages[chronoIndex];
                           final isMe = message.senderId == _currentUserId;
                           final showHeader = _shouldShowHeader(chronoIndex);
-                          final showUnreadDivider = chronoIndex == _firstUnreadChronoIndex;
+                          final showUnreadDivider = !_isSearching && (chronoIndex == _firstUnreadChronoIndex);
 
                           return Column(
                             mainAxisSize: MainAxisSize.min,
@@ -1024,14 +1171,48 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 _buildMessageInput(),
+                SizedBox(
+                  height: MediaQuery.of(context).viewInsets.bottom,
+                ),
               ],
             ),
+            if (_activeReactionMessage != null)
+              _buildReactionOverlay(),
+          ],
+        ),
     );
   }
 
   Widget _buildMessageBubble(Message message, bool isMe) {
     final timeStr = DateFormat('h:mm a').format(message.createdAt.toLocal());
     final isSending = message.id == -1;
+
+    final IconData statusIcon;
+    final Color statusColor;
+    final String statusText;
+
+    if (isSending) {
+      statusIcon = Icons.access_time_rounded;
+      statusColor = const Color(0xFF8E717D);
+      statusText = 'Sending';
+    } else if (message.isRead) {
+      statusIcon = Icons.done_all_rounded;
+      statusColor = Theme.of(context).colorScheme.primary;
+      if (message.updatedAt != null) {
+        final seenTimeStr = DateFormat('h:mm a').format(message.updatedAt!.toLocal());
+        statusText = 'Seen $seenTimeStr';
+      } else {
+        statusText = 'Seen';
+      }
+    } else if (_isPartnerOnline) {
+      statusIcon = Icons.done_all_rounded;
+      statusColor = const Color(0xFF8E717D);
+      statusText = 'Received';
+    } else {
+      statusIcon = Icons.done_rounded;
+      statusColor = const Color(0xFF8E717D);
+      statusText = 'Sent';
+    }
 
     return SwipeToReply(
       onReply: () {
@@ -1062,13 +1243,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     onLongPress: isSending
                         ? null
                         : () {
-                            _messageFocusNode.unfocus();
                             _showReactionSheet(message);
                           },
                     onDoubleTap: isSending
                         ? null
                         : () async {
-                            _messageFocusNode.unfocus();
                             final String? myReaction = isMe ? message.senderReaction : message.receiverReaction;
                             final isRemoving = myReaction == '❤️';
                             
@@ -1119,6 +1298,15 @@ class _ChatScreenState extends State<ChatScreen> {
                               bottomLeft: Radius.circular(isMe ? 20 : 4),
                               bottomRight: Radius.circular(isMe ? 4 : 20),
                             ),
+                            boxShadow: message.id == _highlightedMessageId
+                                ? [
+                                    BoxShadow(
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                                      blurRadius: 18,
+                                      spreadRadius: 4,
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1208,13 +1396,18 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (isMe) ...[
                       SizedBox(width: 4),
                       Icon(
-                        isSending
-                            ? Icons.access_time_rounded
-                            : (message.isRead ? Icons.done_all_rounded : Icons.done_rounded),
+                        statusIcon,
                         size: 11,
-                        color: isSending
-                            ? Color(0xFF8E717D)
-                            : (message.isRead ? Theme.of(context).colorScheme.primary : Color(0xFF8E717D)),
+                        color: statusColor,
+                      ),
+                      SizedBox(width: 2),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ],
@@ -1484,14 +1677,106 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _startEditingMessage(Message message) {
     setState(() {
+      _activeReactionMessage = null;
       _editingMessage = message;
       _replyingToMessage = null;
       _messageController.text = message.content;
     });
-    _messageFocusNode.requestFocus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _messageFocusNode.requestFocus();
+      _messageController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _messageController.text.length),
+      );
+    });
+  }
+
+  void _performSearch(String query) {
+    if (query.trim().isEmpty) return;
+    
+    final matches = <int>[];
+    for (int i = 0; i < _messages.length; i++) {
+      if (_messages[i].content.toLowerCase().contains(query.toLowerCase())) {
+        matches.add(i); // stores chronoIndex (0 is oldest, length-1 is newest)
+      }
+    }
+
+    setState(() {
+      _searchResultIndices = matches;
+      if (matches.isNotEmpty) {
+        // Start with the most recent match (which is the last element in matches)
+        _currentSearchResultIndex = matches.length - 1;
+        _navigateToSearchResult();
+      } else {
+        _currentSearchResultIndex = -1;
+        _highlightedMessageId = null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No matching messages found.'), duration: Duration(seconds: 1)),
+        );
+      }
+    });
+  }
+
+  void _navigateToSearchResult() {
+    if (_currentSearchResultIndex < 0 || _currentSearchResultIndex >= _searchResultIndices.length) return;
+    final chronoIndex = _searchResultIndices[_currentSearchResultIndex];
+    final listViewIndex = _messages.length - 1 - chronoIndex;
+    
+    // Estimate 90 pixels per message
+    final targetOffset = listViewIndex * 90.0;
+    
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    final matchedMessageId = _messages[chronoIndex].id;
+    setState(() {
+      _highlightedMessageId = matchedMessageId;
+    });
+
+    // Fade out highlight after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _highlightedMessageId == matchedMessageId) {
+        setState(() {
+          _highlightedMessageId = null;
+        });
+      }
+    });
+  }
+
+  void _searchPrev() {
+    if (_searchResultIndices.isEmpty) return;
+    setState(() {
+      // Go to older messages (lower chronoIndex, which is earlier in the matches array)
+      if (_currentSearchResultIndex > 0) {
+        _currentSearchResultIndex--;
+      } else {
+        _currentSearchResultIndex = _searchResultIndices.length - 1; // Wrap around to newest
+      }
+      _navigateToSearchResult();
+    });
+  }
+
+  void _searchNext() {
+    if (_searchResultIndices.isEmpty) return;
+    setState(() {
+      // Go to newer messages (higher chronoIndex, which is later in the matches array)
+      if (_currentSearchResultIndex < _searchResultIndices.length - 1) {
+        _currentSearchResultIndex++;
+      } else {
+        _currentSearchResultIndex = 0; // Wrap around to oldest
+      }
+      _navigateToSearchResult();
+    });
   }
 
   void _confirmUnsendMessage(Message message) {
+    setState(() {
+      _activeReactionMessage = null;
+    });
     _messageFocusNode.unfocus();
     showDialog(
       context: context,

@@ -10,7 +10,7 @@ class ApiService {
 
   final http.Client _client = http.Client();
   String? _customHost;
-  String _detectedHost = '10.164.158.59'; // Current machine LAN IP fallback
+  String _detectedHost = '10.119.115.59'; // Current machine LAN IP fallback
   Map<String, dynamic>? _cachedUserStatus;
   DateTime? _lastStatusFetch;
 
@@ -63,7 +63,7 @@ class ApiService {
 
   Future<void> _autoDetectAndroidHost() async {
     // Candidates: 1. Emulator loopback, 2. Machine's current LAN IP, 3. Machine's previous LAN IP
-    final candidates = ['10.0.2.2', '10.164.158.59', '10.19.193.59'];
+    final candidates = ['10.119.115.59', '10.0.2.2', '10.164.158.59', '10.19.193.59'];
     for (final ip in candidates) {
       try {
         final socket = await Socket.connect(ip, 8000, timeout: const Duration(milliseconds: 300));
@@ -100,12 +100,28 @@ class ApiService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     clearCache();
+    String deviceName = 'Unknown Device';
+    if (kIsWeb) {
+      deviceName = 'Web App';
+    } else if (Platform.isAndroid) {
+      deviceName = 'Android Device';
+    } else if (Platform.isIOS) {
+      deviceName = 'iOS Device';
+    } else if (Platform.isWindows) {
+      deviceName = 'Windows PC';
+    } else if (Platform.isMacOS) {
+      deviceName = 'macOS PC';
+    } else if (Platform.isLinux) {
+      deviceName = 'Linux PC';
+    }
+
     final response = await _client.post(
       Uri.parse('$baseUrl/login'),
       headers: _headers(false),
       body: jsonEncode({
         'email': email,
         'password': password,
+        'device_name': deviceName,
       }),
     ).timeout(const Duration(seconds: 10));
 
@@ -307,7 +323,7 @@ class ApiService {
     }
   }
 
-  Future<void> updateFcmToken(String fcmToken) async {
+  Future<void> updateFcmToken(String? fcmToken) async {
     await _client.post(
       Uri.parse('$baseUrl/user/fcm-token'),
       headers: _headers(),
@@ -443,6 +459,51 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> sendSignupOtp(String email) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/signup/send-otp'),
+        headers: _headers(false),
+        body: jsonEncode({
+          'email': email,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true, 
+          'message': data['message'],
+          'debug_otp': data['debug_otp']
+        };
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Failed to send verification code.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> verifySignupOtp(String email, String otp) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/signup/verify-otp'),
+        headers: _headers(false),
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Invalid verification code.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   Future<Map<String, dynamic>> cancelPairing() async {
     clearCache();
     final response = await _client.post(
@@ -454,6 +515,38 @@ class ApiService {
       return {'success': true, 'message': data['message']};
     } else {
       return {'success': false, 'message': data['message'] ?? 'Failed to cancel pairing.'};
+    }
+  }
+
+  Future<List<dynamic>> getDevices() async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/user/devices'),
+      headers: _headers(),
+    ).timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load active sessions');
+    }
+  }
+
+  Future<void> logoutDevice(int tokenId) async {
+    final response = await _client.delete(
+      Uri.parse('$baseUrl/user/devices/$tokenId'),
+      headers: _headers(),
+    ).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to log out from device');
+    }
+  }
+
+  Future<void> logoutOtherDevices() async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/user/devices/logout-others'),
+      headers: _headers(),
+    ).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to log out from other devices');
     }
   }
 }

@@ -44,6 +44,7 @@ class MessageSent implements ShouldBroadcastNow
             'is_read' => $this->message->is_read,
             'reaction' => $this->message->reaction,
             'created_at' => $this->message->created_at->toIso8601String(),
+            'updated_at' => $this->message->updated_at ? $this->message->updated_at->toIso8601String() : $this->message->created_at->toIso8601String(),
         ];
     }
 }

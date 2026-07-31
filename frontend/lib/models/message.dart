@@ -7,6 +7,7 @@ class Message {
   final String? senderReaction;
   final String? receiverReaction;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final int? replyToId;
   final Message? replyTo;
 
@@ -19,6 +20,7 @@ class Message {
     this.senderReaction,
     this.receiverReaction,
     required this.createdAt,
+    this.updatedAt,
     this.replyToId,
     this.replyTo,
   });
@@ -35,6 +37,9 @@ class Message {
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at']) 
           : DateTime.now(),
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.parse(json['updated_at']) 
+          : null,
       replyToId: json['reply_to_id'],
       replyTo: json['reply_to'] != null ? Message.fromJson(json['reply_to']) : null,
     );
@@ -50,6 +55,7 @@ class Message {
       'sender_reaction': senderReaction,
       'receiver_reaction': receiverReaction,
       'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
       'reply_to_id': replyToId,
       'reply_to': replyTo?.toJson(),
     };
@@ -66,6 +72,7 @@ class Message {
     bool clearSenderReaction = false,
     bool clearReceiverReaction = false,
     DateTime? createdAt,
+    DateTime? updatedAt,
     int? replyToId,
     Message? replyTo,
   }) {
@@ -78,6 +85,7 @@ class Message {
       senderReaction: clearSenderReaction ? null : (senderReaction ?? this.senderReaction),
       receiverReaction: clearReceiverReaction ? null : (receiverReaction ?? this.receiverReaction),
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       replyToId: replyToId ?? this.replyToId,
       replyTo: replyTo ?? this.replyTo,
     );

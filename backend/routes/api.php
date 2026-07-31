@@ -8,10 +8,20 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\DatePlanController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+Route::middleware('throttle:6,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/signup/verify-otp', [AuthController::class, 'verifySignupOtp']);
+});
+
+Route::middleware('throttle:3,1')->group(function () {
+    Route::post('/signup/send-otp', [AuthController::class, 'sendSignupOtp']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+});
+
+Route::middleware('throttle:5,1')->group(function () {
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user-status', [AuthController::class, 'userStatus']);
@@ -20,6 +30,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/update', [AuthController::class, 'updateProfile']);
     Route::post('/user/fcm-token', [AuthController::class, 'updateFcmToken']);
     Route::post('/user/preferences', [AuthController::class, 'updatePreferences']);
+    
+    Route::get('/user/devices', [AuthController::class, 'getDevices']);
+    Route::delete('/user/devices/{id}', [AuthController::class, 'logoutDevice']);
+    Route::post('/user/devices/logout-others', [AuthController::class, 'logoutOtherDevices']);
     
     Route::get('/dashboard-summary', [DashboardController::class, 'summary']);
     Route::post('/relationship/anniversary', [DashboardController::class, 'updateAnniversary']);

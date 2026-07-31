@@ -88,6 +88,7 @@ class ChatController extends Controller
                         'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
                         'type' => 'chat',
                         'relationship_id' => (string) $relationship->id,
+                        'message_id' => (string) $message->id,
                     ]
                 );
             } catch (\Exception $e) {

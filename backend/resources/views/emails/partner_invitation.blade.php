@@ -34,6 +34,17 @@
     .steps p span { color: #B5003F; font-weight: bold; margin-right: 8px; }
     .footer { background: #FFF5F7; padding: 20px 32px; text-align: center; }
     .footer p { font-size: 12px; color: #B5003F; margin: 0; }
+
+    @media only screen and (max-width: 480px) {
+      .wrapper { margin: 20px 12px !important; border-radius: 16px !important; }
+      .header { padding: 28px 20px !important; }
+      .header h1 { font-size: 22px !important; }
+      .body { padding: 28px 20px !important; }
+      .body .greeting { font-size: 17px !important; }
+      .body .message { font-size: 14px !important; line-height: 1.6 !important; margin-bottom: 20px !important; }
+      .cta-button { padding: 14px 28px !important; font-size: 14px !important; margin-bottom: 20px !important; }
+      .footer { padding: 16px 20px !important; }
+    }
   </style>
 </head>
 <body>
