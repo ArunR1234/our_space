@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../services/offline_service.dart';
 import 'date_planner_dialog.dart';
 import 'login_screen.dart';
 
@@ -31,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDashboardData();
     _setupWebSocketListeners();
+    OfflineService.instance.addListener(_onConnectivityChanged);
   }
 
   @override
@@ -39,7 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _timeElapsedNotifier.dispose();
     _daysTogetherNotifier.dispose();
     _removeWebSocketListeners();
+    OfflineService.instance.removeListener(_onConnectivityChanged);
     super.dispose();
+  }
+
+  void _onConnectivityChanged() {
+    if (mounted && OfflineService.instance.isOnline) {
+      _loadDashboardData();
+    }
   }
 
   void _setupWebSocketListeners() {
@@ -70,6 +79,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+    if (OfflineService.instance.isOffline) {
+      final cached = await OfflineService.instance.loadCachedDashboard();
+      if (cached != null && mounted) {
+        setState(() {
+          _nextDate = cached['next_date'];
+          _anniversaryDateStr = cached['anniversary_date'];
+          _currentUserId = cached['user_id'];
+          _isLoading = false;
+        });
+        _startTimer();
+      } else if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
     try {
       final summary = await ApiService.instance.getDashboardSummary();
       if (mounted) {
@@ -80,10 +107,23 @@ class _HomeScreenState extends State<HomeScreen> {
           _isLoading = false;
         });
         _startTimer();
+        
+        // Cache the dashboard summary for offline use
+        OfflineService.instance.cacheDashboard(summary);
       }
     } catch (e) {
       print('Error loading dashboard: $e');
-      if (mounted) {
+      // Try to fallback to cached dashboard on error
+      final cached = await OfflineService.instance.loadCachedDashboard();
+      if (cached != null && mounted) {
+        setState(() {
+          _nextDate = cached['next_date'];
+          _anniversaryDateStr = cached['anniversary_date'];
+          _currentUserId = cached['user_id'];
+          _isLoading = false;
+        });
+        _startTimer();
+      } else if (mounted) {
         setState(() {
           _isLoading = false;
         });

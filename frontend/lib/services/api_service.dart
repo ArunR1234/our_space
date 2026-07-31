@@ -3,6 +3,7 @@ import 'dart:io' show Platform, Socket;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'offline_service.dart';
 
 class ApiService {
   static final ApiService instance = ApiService._internal();
@@ -172,23 +173,44 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> getUserStatus() async {
+    if (OfflineService.instance.isOffline) {
+      final cached = await OfflineService.instance.loadCachedUserStatus();
+      if (cached != null) {
+        _cachedUserStatus = cached;
+        return cached;
+      }
+    }
+
     final now = DateTime.now();
     if (_cachedUserStatus != null && _lastStatusFetch != null &&
         now.difference(_lastStatusFetch!) < const Duration(seconds: 10)) {
       return _cachedUserStatus!;
     }
 
-    final response = await _client.get(
-      Uri.parse('$baseUrl/user-status'),
-      headers: _headers(),
-    ).timeout(const Duration(seconds: 10));
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/user-status'),
+        headers: _headers(),
+      ).timeout(const Duration(seconds: 10));
 
-    if (response.statusCode == 200) {
-      _cachedUserStatus = jsonDecode(response.body);
-      _lastStatusFetch = now;
-      return _cachedUserStatus!;
-    } else {
-      throw Exception('Failed to load user status');
+      if (response.statusCode == 200) {
+        _cachedUserStatus = jsonDecode(response.body);
+        _lastStatusFetch = now;
+        if (_cachedUserStatus != null) {
+          OfflineService.instance.cacheUserStatus(_cachedUserStatus!);
+        }
+        return _cachedUserStatus!;
+      } else {
+        throw Exception('Failed to load user status');
+      }
+    } catch (e) {
+      // Fallback to cache on exception/error
+      final cached = await OfflineService.instance.loadCachedUserStatus();
+      if (cached != null) {
+        _cachedUserStatus = cached;
+        return cached;
+      }
+      rethrow;
     }
   }
   Future<Map<String, dynamic>> pairPartner(String partnerEmail) async {

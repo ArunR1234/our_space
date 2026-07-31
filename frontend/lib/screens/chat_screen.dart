@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/websocket_service.dart';
+import '../services/offline_service.dart';
 import '../models/message.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,6 +56,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.addListener(_onScroll);
     _loadInitialData();
     _loadSoundPreference();
+    OfflineService.instance.addListener(_onConnectivityChanged);
   }
 
   Future<void> _loadSoundPreference() async {
@@ -99,6 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _localTypingTimer?.cancel();
     _partnerTypingTimeoutTimer?.cancel();
     _heartbeatTimer?.cancel();
+    OfflineService.instance.removeListener(_onConnectivityChanged);
     _messageController.removeListener(_onTextChanged);
     _messageFocusNode.removeListener(_onFocusChange);
     _scrollController.removeListener(_onScroll);
@@ -108,6 +111,13 @@ class _ChatScreenState extends State<ChatScreen> {
     _searchController.dispose();
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  void _onConnectivityChanged() {
+    if (mounted && OfflineService.instance.isOnline) {
+      _disconnectWebSocket();
+      _loadInitialData();
+    }
   }
 
   void _onFocusChange() {
@@ -188,6 +198,17 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages() async {
+    // ── Offline: load from cache ────────────────────────────────────────
+    if (OfflineService.instance.isOffline) {
+      final cached = await OfflineService.instance.loadCachedMessages();
+      if (mounted) {
+        setState(() {
+          _messages = cached;
+        });
+      }
+      return;
+    }
+
     try {
       final messagesJson = await ApiService.instance.getMessages();
       if (mounted) {
@@ -207,9 +228,17 @@ class _ChatScreenState extends State<ChatScreen> {
           _firstUnreadChronoIndex = firstUnread;
         });
         _scrollToBottomForced();
+        
+        // ── Cache for offline use ────────────────────────────────────
+        OfflineService.instance.cacheMessages(loadedMessages);
       }
     } catch (e) {
       print('Error loading messages: $e');
+      // Fallback to cache on any error
+      final cached = await OfflineService.instance.loadCachedMessages();
+      if (mounted && cached.isNotEmpty) {
+        setState(() => _messages = cached);
+      }
     }
   }
 
@@ -432,6 +461,47 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _handleSendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+
+    // ── Offline: queue as draft and show temp message ──────────────────
+    if (OfflineService.instance.isOffline) {
+      final offlineReplyId = _replyingToMessage?.id;
+      final offlineReplyMsg = _replyingToMessage;
+      await OfflineService.instance.enqueueDraft(text, replyToId: offlineReplyId);
+      if (mounted) {
+        final tempMsg = Message(
+          id: -1,
+          relationshipId: 0,
+          senderId: _currentUserId ?? 0,
+          content: text,
+          isRead: false,
+          createdAt: DateTime.now(),
+          replyToId: offlineReplyId,
+          replyTo: offlineReplyMsg,
+        );
+        setState(() {
+          _messages.add(tempMsg);
+          _replyingToMessage = null;
+          _messageController.clear();
+          _messageFocusNode.requestFocus();
+        });
+        _scrollToBottom();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.schedule_rounded, color: Colors.white, size: 16),
+                SizedBox(width: 8),
+                Text('Queued — will send when back online'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF374151),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+      return;
+    }
 
     final now = DateTime.now();
     if (_lastSendTime != null && now.difference(_lastSendTime!) < const Duration(milliseconds: 400)) {

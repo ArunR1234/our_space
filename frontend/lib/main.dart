@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,7 @@ import 'screens/home_screen.dart';
 import 'screens/chat_screen.dart';
 import 'services/api_service.dart';
 import 'services/websocket_service.dart';
+import 'services/offline_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -27,6 +29,7 @@ void main() async {
   
   // Initialize API service (loads saved authentication token)
   await ApiService.instance.init();
+  await OfflineService.instance.init();
 
   runApp(const OurSpaceApp());
 }
@@ -387,12 +390,53 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   StreamSubscription<RemoteMessage>? _fcmMessageSubscription;
   StreamSubscription<String>? _fcmTokenRefreshSubscription;
 
+  bool _isOnline = true;
+
   @override
   void initState() {
     super.initState();
     _initializeLocalNotifications();
     _setupPendingPartnerListener();
     _requestNotificationPermission();
+    // Listen for connectivity changes to show/hide banner and flush drafts
+    _isOnline = OfflineService.instance.isOnline;
+    OfflineService.instance.addListener(_onConnectivityChanged);
+  }
+
+  void _onConnectivityChanged() {
+    final online = OfflineService.instance.isOnline;
+    if (online != _isOnline) {
+      setState(() => _isOnline = online);
+      if (online) {
+        // Back online — flush queued drafts
+        _flushDraftQueue();
+      }
+    }
+  }
+
+  Future<void> _flushDraftQueue() async {
+    final drafts = await OfflineService.instance.getDrafts();
+    if (drafts.isEmpty) return;
+    
+    final List<Map<String, dynamic>> failedDrafts = [];
+    for (final draft in drafts) {
+      try {
+        await ApiService.instance.sendMessage(
+          draft['content'] as String,
+          replyToId: draft['reply_to_id'] as int?,
+        );
+      } catch (e) {
+        debugPrint('OfflineService: Failed to flush draft: $e');
+        failedDrafts.add(draft);
+      }
+    }
+    
+    if (failedDrafts.isEmpty) {
+      await OfflineService.instance.clearDrafts();
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('offline_draft_queue', jsonEncode(failedDrafts));
+    }
   }
 
   Future<void> _initializeLocalNotifications() async {
@@ -483,6 +527,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     _globalHeartbeatTimer = null;
     _fcmMessageSubscription?.cancel();
     _fcmTokenRefreshSubscription?.cancel();
+    OfflineService.instance.removeListener(_onConnectivityChanged);
     WebSocketService.instance.removeListener('App\\Events\\PartnerConnected', _onPartnerConnected);
     WebSocketService.instance.removeListener('App\\Events\\MessageSent', _onGlobalMessageSentReceived);
     super.dispose();
@@ -770,7 +815,69 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: _screens[_currentIndex],
+      body: Stack(
+        children: [
+          _screens[_currentIndex],
+          // ── Offline Banner ──────────────────────────────────────
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeInOut,
+            top: _isOnline ? -60 : MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _isOnline
+                      ? const Color(0xFF10B981)  // green (back online)
+                      : const Color(0xFF374151), // dark grey (offline)
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isOnline ? 'Back online' : 'No internet connection',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (!_isOnline) ...
+                      [
+                        const SizedBox(width: 8),
+                        const Text(
+                          '• Showing cached data',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: isKeyboardOpen
           ? null
           : Container(
