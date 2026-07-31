@@ -612,6 +612,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showReactionSheet(Message message) {
+    _messageFocusNode.unfocus();
     setState(() {
       _activeReactionMessage = message;
     });
@@ -1891,10 +1892,10 @@ class _ChatScreenState extends State<ChatScreen> {
       await ApiService.instance.deleteMessage(message.id);
     } catch (e) {
       print('Error unsending message: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to unsend message.')),
-      );
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to unsend message.')),
+        );
         setState(() {
           _messages = originalMessages;
         });
@@ -1945,10 +1946,10 @@ class _ChatScreenState extends State<ChatScreen> {
       await ApiService.instance.clearChatHistory();
     } catch (e) {
       print('Error clearing chat history: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to clear chat history.')),
-      );
       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to clear chat history.')),
+        );
         setState(() {
           _messages = originalMessages;
         });
@@ -1957,6 +1958,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showFullEmojiPicker(Message message) {
+    _messageFocusNode.unfocus();
     final bool isMe = message.senderId == _currentUserId;
     final String? myCurrentReaction = isMe ? message.senderReaction : message.receiverReaction;
     const Map<String, List<String>> categories = {

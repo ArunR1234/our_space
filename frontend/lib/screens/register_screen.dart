@@ -27,6 +27,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isSendingOtp = false;
   bool _isVerifyingOtp = false;
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
   Future<void> _sendOtp() async {
     setState(() {
       _errorMessage = null;

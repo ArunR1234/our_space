@@ -223,6 +223,28 @@ class _PairingScreenState extends State<PairingScreen> {
   }
 
   Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFFFECEF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Log out from journey?', style: TextStyle(fontFamily: 'Georgia', fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to log out from Our Space?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8E717D))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Log out', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     await ApiService.instance.logout();
     if (mounted) {
       Navigator.pushReplacement(

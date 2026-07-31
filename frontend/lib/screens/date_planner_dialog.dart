@@ -29,6 +29,13 @@ class _DatePlannerDialogState extends State<DatePlannerDialog> {
     }
   }
 
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickDateTime() async {
     final pickedDate = await showDatePicker(
       context: context,
