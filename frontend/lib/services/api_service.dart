@@ -4,14 +4,16 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'offline_service.dart';
+import 'server_config.dart';
 
 class ApiService {
   static final ApiService instance = ApiService._internal();
   ApiService._internal();
 
   final http.Client _client = http.Client();
+  
   String? _customHost;
-  String _detectedHost = '10.119.115.59'; // Current machine LAN IP fallback
+  String _detectedHost = ServerConfig.localHostFallback; // Current machine LAN IP fallback
   Map<String, dynamic>? _cachedUserStatus;
   DateTime? _lastStatusFetch;
 
@@ -21,6 +23,9 @@ class ApiService {
   }
 
   String get host {
+    if (ServerConfig.useProduction) {
+      return ServerConfig.productionHost;
+    }
     if (_customHost != null && _customHost!.isNotEmpty) {
       return _customHost!;
     }
@@ -34,6 +39,9 @@ class ApiService {
   }
 
   bool get _isLocal {
+    if (ServerConfig.useProduction) {
+      return false;
+    }
     final h = host.toLowerCase();
     return h.startsWith('127.0.0.1') || 
            h.startsWith('10.') || 
@@ -43,6 +51,10 @@ class ApiService {
   }
 
   String get baseUrl {
+    if (ServerConfig.useProduction) {
+      final scheme = ServerConfig.productionUseHttps ? 'https' : 'http';
+      return '$scheme://$host/api';
+    }
     if (_isLocal) {
       return 'http://$host:8000/api';
     }
@@ -64,7 +76,7 @@ class ApiService {
 
   Future<void> _autoDetectAndroidHost() async {
     // Candidates: 1. Emulator loopback, 2. Machine's current LAN IP, 3. Machine's previous LAN IP
-    final candidates = ['10.119.115.59', '10.0.2.2', '10.164.158.59', '10.19.193.59'];
+    final candidates = [ServerConfig.localHostFallback, '10.0.2.2', '10.164.158.59', '10.19.193.59'];
     for (final ip in candidates) {
       try {
         final socket = await Socket.connect(ip, 8000, timeout: const Duration(milliseconds: 300));
